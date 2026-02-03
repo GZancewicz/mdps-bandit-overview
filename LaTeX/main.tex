@@ -39,6 +39,34 @@
 \renewcommand{\thefootnote}{\arabic{footnote}}
 \setcounter{footnote}{0}
 
+\begin{abstract}
+This paper provides a self-contained overview of five core model classes in Markov-based sequential decision-making: Markov processes, Markov decision processes (MDPs), partially observable MDPs (POMDPs), multi-armed bandits, and restless bandits. The models are arranged in a progression of increasing generality, beginning with passive stochastic dynamics and culminating in problems where multiple evolving subsystems must be managed under combinatorial constraints. For each model class we present a formal definition, the principal theoretical results---including the Bellman equation, Bayesian belief updates, regret bounds, and the Whittle index---and one or more fully worked numerical examples with accompanying Python code. Bandit strategies covered include $\varepsilon$-greedy, UCB1, Thompson Sampling, the Gittins index, successive elimination, KL-UCB, and EXP3. We also briefly survey hidden Markov models, contextual bandits, Markov games, constrained MDPs, semi-Markov decision processes, and model-free reinforcement learning. A glossary of all technical terms is provided. The paper is intended as an accessible yet rigorous entry point for researchers and practitioners new to the field.
+\end{abstract}
+
+\section{Introduction}
+
+Many problems in engineering, operations research, economics, and artificial intelligence share a common structure: an agent must make a sequence of decisions under uncertainty, where each decision influences future states of the world and the rewards that follow. The mathematical framework for such problems rests on the theory of Markov processes and their controlled extensions, a body of work spanning over a century---from Markov's original study of dependent random variables \cite{markov1906} through Bellman's dynamic programming \cite{bellman1957} to modern bandit algorithms deployed in clinical trials, online advertising, and autonomous systems.
+
+This paper provides a self-contained overview of five core model classes arranged in a progression of increasing generality:
+
+\begin{enumerate}
+  \item \textbf{Markov Processes} (Section~2). A system evolves randomly among a finite set of states according to fixed transition probabilities, with no external control. The transition matrix and stationary distribution are the central objects.
+
+  \item \textbf{Markov Decision Processes} (Section~3). An agent chooses actions that influence both state transitions and rewards. The Bellman equation characterizes the optimal policy, and value iteration provides a constructive solution method.
+
+  \item \textbf{Partially Observable MDPs} (Section~4). The agent can no longer observe the state directly and must maintain a belief distribution updated via Bayes' rule. The POMDP reduces to a continuous-state MDP over the belief simplex, at the cost of greatly increased computational complexity.
+
+  \item \textbf{Multi-Armed Bandits} (Section~5). The exploration--exploitation tradeoff is isolated in its purest form: a single-state problem where the agent must learn which arm is best by trying them. We cover $\varepsilon$-greedy, UCB1, Thompson Sampling, the Gittins index, successive elimination, KL-UCB, and EXP3, together with the Lai--Robbins regret lower bound.
+
+  \item \textbf{Restless Bandits} (Section~6). The classical bandit assumption that unplayed arms are frozen is removed: every arm evolves at every time step. The Whittle index policy provides a tractable heuristic for this PSPACE-hard problem.
+\end{enumerate}
+
+Section~7 briefly surveys several related model classes---hidden Markov models, contextual bandits, Markov games, constrained MDPs, semi-Markov decision processes, and model-free reinforcement learning---that lie beyond the scope of this paper but occupy adjacent regions of the same theoretical landscape.
+
+Each section follows a uniform structure: a notation table listing all symbols used in that section, a formal definition, the key theoretical results, one or more worked examples with explicit numerical computation, and a summary containing the key equations and relevant applications. Where appropriate, Python code is provided to verify analytical solutions via value iteration or simulation. The paper concludes with a glossary of all technical terms.
+
+The intended audience is researchers and practitioners who seek a concise, rigorous, yet accessible entry point into Markov-based sequential decision-making. Familiarity with linear algebra and basic probability is assumed; no prior exposure to dynamic programming or bandit theory is required.
+
 \section{Markov Processes}
 
 A \textbf{Markov process} (or Markov chain) is a stochastic process satisfying the \emph{Markov property}: the conditional probability of future states depends only on the present state, not on the sequence of states that preceded it. This idea was first formalized by A.\ A.\ Markov in his study of dependent random variables \cite{markov1906}.
@@ -1053,6 +1081,114 @@ The MDP assumes that every action takes exactly one time step. A \textbf{semi-Ma
 \subsection{Model-Free Reinforcement Learning}
 
 The solution methods in this paper---value iteration, policy evaluation, Bellman equations solved in closed form---all assume the transition probabilities and rewards are known. \textbf{Model-free reinforcement learning} \cite{sutton2018} addresses the setting where the agent must learn to act \emph{without} a model, using only sampled experience. Algorithms such as Q-learning, SARSA, and policy gradient methods (REINFORCE, PPO, actor-critic) learn value functions or policies directly from interaction. Deep reinforcement learning combines these algorithms with neural network function approximation, enabling application to problems with enormous state spaces---game playing, robotic manipulation, chip design---where tabular dynamic programming is infeasible. Model-free RL is not a model class in the same sense as the others listed here; it is a solution methodology that applies across MDPs, POMDPs, and multi-agent settings.
+
+\section{Conclusion}
+
+This paper has traced a single coherent thread through the theory of sequential decision-making under uncertainty: from the passive Markov chain (Section~1), where a system evolves according to fixed transition probabilities, to the Markov decision process (Section~2), where an agent's actions influence both transitions and rewards, to the partially observable MDP (Section~3), where the agent must act on incomplete information maintained through Bayesian belief updates. The multi-armed bandit (Section~4) isolates the exploration--exploitation tradeoff in its purest form, and the restless bandit (Section~5) reintroduces state dynamics by allowing arms to evolve whether or not they are played.
+
+Several unifying ideas recur across these models. The \emph{Bellman equation}---the principle that an optimal policy decomposes into an optimal immediate action followed by optimal continuation---appears in Sections~2, 3, and (implicitly, via the Gittins index) Section~4. \emph{Sufficient statistics} play a central role: the state in an MDP, the belief in a POMDP, and the posterior in a Bayesian bandit each compress all relevant history into a compact representation. The tension between \emph{tractability and generality} is a recurring theme: each extension in the hierarchy (adding actions, partial observability, or restless dynamics) increases modeling power at the cost of computational complexity, from polynomial-time solvability for MDPs to PSPACE-hardness for POMDPs and restless bandits.
+
+The worked examples throughout the paper---the two-state Markov chain, the binary MDP and asset maintenance problem, the Tiger Problem, the three-armed bandit under four strategies, and the machine maintenance restless bandit---are intended to make the formal definitions concrete. Each example is accompanied by explicit numerical computation and, where appropriate, Python code for verification. Our hope is that these examples lower the barrier to entry for practitioners encountering these models for the first time.
+
+Section~6 surveyed several important model classes that lie outside the scope of this paper, including hidden Markov models, contextual bandits, Markov games, constrained MDPs, semi-Markov decision processes, and model-free reinforcement learning. Together with the models treated here, they span much of the landscape of Markov-based sequential decision-making. Exploring these extensions---and the connections among them---remains a rich area of both theoretical research and practical application.
+
+\section*{Glossary}
+
+\begin{description}
+
+\item[Action] A decision available to the agent at each time step. In an MDP, the set of actions is $\mathcal{A} = \{a_1, \dots, a_m\}$. (Section~2)
+
+\item[Asymptotic optimality] A property of a policy whose performance approaches the optimum as a problem parameter (e.g., number of arms $K$, time horizon $T$) tends to infinity. The Whittle index policy is asymptotically optimal for restless bandits under indexability and stability conditions. (Section~5)
+
+\item[Belief MDP] The reformulation of a POMDP as a fully observable MDP whose state is the belief vector $\mathbf{b}$. The Bellman equation carries over but ranges over a continuous state space. (Section~3)
+
+\item[Belief state] A probability distribution $\mathbf{b}$ over the state space $\mathcal{S}$, representing the agent's uncertainty about the true state in a POMDP. Updated via Bayes' rule after each action and observation. (Section~3)
+
+\item[Bellman equation] The recursive characterization of the optimal value function: $V^*(s_i) = \max_a [r(s_i, a) + \gamma \sum_j p_{ij}(a) V^*(s_j)]$. Expresses the principle of optimality. (Section~2)
+
+\item[Constrained MDP (CMDP)] An MDP augmented with side constraints on expected cumulative costs. The optimal policy is generally a mixture of deterministic policies. (Section~6)
+
+\item[Contextual bandit] A bandit model in which the agent observes a context (feature vector) before selecting an arm, and the reward distribution depends on the context. Intermediate between the context-free bandit and the full MDP. (Section~6)
+
+\item[Cumulative regret] The total expected reward lost by not always pulling the best arm: $R_T = \sum_{i:\mu_i < \mu^*} \Delta_i \cdot \mathbb{E}[T_i(T)]$. (Section~4)
+
+\item[Discount factor] A parameter $\gamma \in [0,1)$ that weights future rewards relative to immediate ones. A reward received $t$ steps in the future is worth $\gamma^t$ times its face value. (Section~2)
+
+\item[Ergodicity] A Markov chain is ergodic if it is irreducible (every state is reachable from every other) and aperiodic (does not cycle with a fixed period). An ergodic chain converges to a unique stationary distribution. (Section~1)
+
+\item[Exploration] The act of trying actions or arms to gather information about their rewards or transition dynamics. Contrasted with exploitation. (Section~4)
+
+\item[Exploitation] The act of choosing the action or arm currently believed to be best, based on available information. Contrasted with exploration. (Section~4)
+
+\item[EXP3] Exponential-weight algorithm for Exploration and Exploitation. A bandit strategy for the adversarial (non-stochastic) setting, achieving $O(\sqrt{KT \ln K})$ regret. (Section~4)
+
+\item[Gap] The suboptimality of arm $i$: $\Delta_i = \mu^* - \mu_i$. Arms with smaller gaps are harder to distinguish from the optimum. (Section~4)
+
+\item[Gittins index] The index $G_i$ assigned to each arm in the discounted Bayesian bandit, computed from the arm's posterior alone. The Bayes-optimal policy pulls the arm with the highest Gittins index. (Section~4)
+
+\item[Hidden Markov model (HMM)] A Markov chain with unobservable states and state-dependent observations. The passive, uncontrolled counterpart of the POMDP. (Section~6)
+
+\item[Immediate reward] The reward $r(s_i, a)$ received when action $a$ is taken in state $s_i$. (Section~2)
+
+\item[Indexability] A property of a restless bandit arm: the set of states in which the passive action is optimal grows monotonically as the subsidy for passivity $\lambda$ increases. Required for the Whittle index to be well-defined. (Section~5)
+
+\item[KL-UCB] A variant of UCB that uses Kullback--Leibler divergence instead of Hoeffding bounds, achieving asymptotically optimal regret with exact constants. (Section~4)
+
+\item[Lai--Robbins lower bound] The information-theoretic lower bound on regret: $\liminf_{T \to \infty} \mathbb{E}[R_T] / \ln T \geq \sum_i \Delta_i / \text{KL}(\nu_i, \nu^*)$. Establishes that logarithmic regret growth is the best achievable. (Section~4)
+
+\item[Markov chain] See Markov process.
+
+\item[Markov decision process (MDP)] A controlled stochastic process defined by $(\mathcal{S}, \mathcal{A}, p, r, \gamma)$, extending the Markov chain with actions and rewards. (Section~2)
+
+\item[Markov game] A multi-agent extension of the MDP in which multiple players choose actions simultaneously and each receives a potentially different reward. Also called a stochastic game. (Section~6)
+
+\item[Markov process] A stochastic process satisfying the Markov property: the future state depends only on the present state, not on the history. Also called a Markov chain. (Section~1)
+
+\item[Markov property] The memoryless property: $P(X_{t+1} = s_j \mid X_t = s_i, X_{t-1}, \dots, X_0) = P(X_{t+1} = s_j \mid X_t = s_i)$. (Section~1)
+
+\item[Model-free reinforcement learning] Solution methods (e.g., Q-learning, policy gradient) that learn to act without a model of transition probabilities or rewards, using only sampled experience. (Section~6)
+
+\item[Multi-armed bandit (MAB)] A sequential decision problem in which an agent repeatedly chooses among $K$ arms with unknown reward distributions, balancing exploration and exploitation. A degenerate MDP with a single state. (Section~4)
+
+\item[Observation function] The function $O(o \mid s', a)$ giving the probability of receiving observation $o$ after taking action $a$ and arriving in state $s'$. (Section~3)
+
+\item[Optimal policy] The policy $\pi^*$ that achieves the maximum value at every state: $\pi^*(s_i) = \arg\max_a [r(s_i, a) + \gamma \sum_j p_{ij}(a) V^*(s_j)]$. (Section~2)
+
+\item[Optimal value function] The function $V^*(s_i) = \max_\pi V^\pi(s_i)$ giving the maximum achievable discounted return from each state. (Section~2)
+
+\item[Partially observable MDP (POMDP)] An MDP in which the agent cannot observe the true state and instead receives noisy observations. Defined by $(\mathcal{S}, \mathcal{A}, p, r, \Omega, O, \gamma)$. (Section~3)
+
+\item[Policy] A rule $\pi : \mathcal{S} \to \mathcal{A}$ specifying which action to take in each state. Under a fixed policy, an MDP reduces to a Markov chain. (Section~2)
+
+\item[PSPACE-hard] A complexity class indicating that a problem is at least as hard as any problem solvable in polynomial space. Both POMDPs and restless bandits are PSPACE-hard. (Sections~3, 5)
+
+\item[Restless bandit] A multi-armed bandit in which every arm transitions at every time step, regardless of whether it is played. Introduced by Whittle (1988). (Section~5)
+
+\item[Semi-Markov decision process (SMDP)] An MDP in which actions have variable, random durations. Rewards accrue over the holding period and discounting accounts for elapsed time. (Section~6)
+
+\item[Stationary distribution] A distribution $\boldsymbol{\mu}^*$ satisfying $\boldsymbol{\mu}^* = \boldsymbol{\mu}^* \mathbf{P}$; once reached, it remains unchanged under further transitions. (Section~1)
+
+\item[Successive elimination] A bandit algorithm that maintains a set of active arms and permanently discards arms whose confidence bounds prove them suboptimal. (Section~4)
+
+\item[Sufficient statistic] A quantity that captures all information from the history relevant to future decisions. The state in an MDP, the belief in a POMDP, and the posterior in a Bayesian bandit are each sufficient statistics. (Sections~1--4)
+
+\item[Thompson Sampling] A Bayesian bandit strategy that samples from the posterior distribution of each arm's mean and pulls the arm with the highest sample. (Section~4)
+
+\item[Transition matrix] The matrix $\mathbf{P}$ with entries $p_{ij}$, where each row sums to one. Governs the evolution of the state distribution: $\boldsymbol{\mu}_{t+1} = \boldsymbol{\mu}_t \mathbf{P}$. (Section~1)
+
+\item[Transition probability] The probability $p_{ij}$ (or $p_{ij}(a)$ in an MDP) of moving from state $s_i$ to state $s_j$ (under action $a$). (Sections~1, 2)
+
+\item[UCB1] Upper Confidence Bound algorithm. Selects the arm maximizing $\hat{\mu}_i + \sqrt{2 \ln t / N_i}$, balancing exploitation (empirical mean) with exploration (confidence bonus). (Section~4)
+
+\item[Value function] A function $V : \mathcal{S} \to \mathbb{R}$ assigning to each state the total discounted reward obtainable under a given policy (or the optimal policy). (Section~2)
+
+\item[Value iteration] An algorithm that repeatedly applies the Bellman operator to converge to the optimal value function. (Section~2)
+
+\item[Whittle index] The critical subsidy $W(s) = \inf\{\lambda : \text{passive is optimal in state } s\}$. Measures the value of activating a restless bandit arm in state $s$. (Section~5)
+
+\item[Whittle index policy] The heuristic that activates the $M$ arms with the highest Whittle indices at each time step. Asymptotically optimal under indexability and stability. (Section~5)
+
+\end{description}
 
 \begin{thebibliography}{99}
 
