@@ -112,7 +112,29 @@ Provided $\alpha, \beta > 0$, this chain is ergodic\footnote{A Markov chain is \
 
 A Markov process models a system that transitions randomly among a finite set of states, with the defining property that the future depends only on the present state---not on the path taken to reach it. The transition matrix $\mathbf{P}$ fully characterizes the dynamics, and the distribution over states evolves by left-multiplication: $\boldsymbol{\mu}_{t+1} = \boldsymbol{\mu}_t \mathbf{P}$. Under mild conditions (ergodicity), the chain converges to a unique stationary distribution regardless of the starting state. Markov processes provide the probabilistic foundation for all models in the subsequent sections: MDPs add actions and rewards, POMDPs add partial observability, and bandit models isolate the exploration--exploitation tradeoff.
 
-\textbf{Relevant Applications:}
+\subsubsection{Key Equations}
+
+Markov property:
+\begin{equation*}
+  P(X_{t+1} = s_j \mid X_t = s_i, X_{t-1}, \dots, X_0) = P(X_{t+1} = s_j \mid X_t = s_i) \triangleq p_{ij}.
+\end{equation*}
+
+Distribution evolution:
+\begin{equation*}
+  \boldsymbol{\mu}_{t+1} = \boldsymbol{\mu}_t \mathbf{P}.
+\end{equation*}
+
+Stationary distribution:
+\begin{equation*}
+  \boldsymbol{\mu}^* = \boldsymbol{\mu}^* \mathbf{P}.
+\end{equation*}
+
+Stationary distribution (two-state chain):
+\begin{equation*}
+  \boldsymbol{\mu}^* = \left(\frac{\beta}{\alpha + \beta},\; \frac{\alpha}{\alpha + \beta}\right).
+\end{equation*}
+
+\subsubsection{Relevant Applications}
 \begin{itemize}
   \item Weather modeling, where atmospheric conditions transition among discrete states (e.g., sunny, cloudy, rainy) with estimated probabilities.
   \item Queueing systems, where the number of customers in a queue evolves as a Markov chain governed by arrival and service rates.
