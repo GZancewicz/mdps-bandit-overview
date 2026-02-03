@@ -1,0 +1,706 @@
+\documentclass[12pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1,T2A]{fontenc}
+\usepackage[russian,english]{babel}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{geometry}
+\usepackage[unicode]{hyperref}
+\usepackage{tikz}
+\usepackage{listings}
+\lstset{
+  language=Python,
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\bfseries,
+  commentstyle=\itshape,
+  numbers=none,
+  frame=single,
+  breaklines=true,
+  captionpos=b,
+  columns=fullflexible,
+  showstringspaces=false,
+  literate={_}{\_}1
+}
+\usetikzlibrary{automata, positioning, arrows.meta}
+
+\geometry{margin=1in}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{1em}
+
+\title{Overview of Markov Decision Processes and Multi-Armed Bandits}
+\author{Gregory Zancewicz\thanks{With assistance from Anthropic Claude Opus 4.5 and OpenAI GPT-5.2 AI agents.}}
+\date{February 3, 2026}
+
+\begin{document}
+
+\renewcommand{\thefootnote}{\fnsymbol{footnote}}
+\maketitle
+\renewcommand{\thefootnote}{\arabic{footnote}}
+\setcounter{footnote}{0}
+
+\section{Markov Processes}
+
+A \textbf{Markov process} (or Markov chain) is a stochastic process satisfying the \emph{Markov property}: the conditional probability of future states depends only on the present state, not on the sequence of states that preceded it. This idea was first formalized by A.\ A.\ Markov in his study of dependent random variables \cite{markov1906}.
+
+\subsection{Definitions and Notation}
+
+Let $\mathcal{S} = \{s_1, s_2, \dots, s_n\}$ denote a finite set of \textbf{states}. Each state is simply an element of this set; it may represent a concrete condition (e.g., ``sunny'' or ``rainy''), a configuration of a system, or, in some applications, a random variable---but need not in general. A discrete-time Markov chain is a process that, at each time step $t = 0, 1, 2, \dots$, occupies some state $X_t \in \mathcal{S}$ and transitions to a next state. The defining assumption---the \emph{Markov property}---is that the probability of the next state depends only on the current state, not on how the process arrived there:
+\begin{equation}
+  P(X_{t+1} = s_j \mid X_t = s_i, X_{t-1}, \dots, X_0) = P(X_{t+1} = s_j \mid X_t = s_i) \triangleq p_{ij}.
+\end{equation}
+That is, conditioning on the full history (left side) yields the same probability as conditioning on the present state alone (right side). We denote this common value $p_{ij}$, the \textbf{transition probability} from state $s_i$ to state $s_j$. The transition probabilities satisfy
+\begin{equation}
+  p_{ij} \geq 0 \quad \text{and} \quad \sum_{j=1}^{n} p_{ij} = 1 \quad \text{for all } i.
+\end{equation}
+
+These probabilities are collected in the \textbf{transition matrix}
+\begin{equation}
+  \mathbf{P} = \begin{pmatrix} p_{11} & p_{12} & \cdots & p_{1n} \\ p_{21} & p_{22} & \cdots & p_{2n} \\ \vdots & \vdots & \ddots & \vdots \\ p_{n1} & p_{n2} & \cdots & p_{nn} \end{pmatrix},
+\end{equation}
+where each row sums to one. The distribution over states at time $t$ is a row vector $\boldsymbol{\mu}_t$, and the evolution of the chain is given by $\boldsymbol{\mu}_{t+1} = \boldsymbol{\mu}_t \mathbf{P}$.
+
+A distribution $\boldsymbol{\mu}^*$ is called a \textbf{stationary distribution} if $\boldsymbol{\mu}^* = \boldsymbol{\mu}^* \mathbf{P}$.
+
+\subsection{Two-State Example}
+
+Consider a Markov chain with two states, $\mathcal{S} = \{s_1, s_2\}$, and transition matrix
+\begin{equation}
+  \mathbf{P} = \begin{pmatrix} 1 - \alpha & \alpha \\ \beta & 1 - \beta \end{pmatrix},
+\end{equation}
+where $\alpha = P(X_{t+1} = s_2 \mid X_t = s_1)$ and $\beta = P(X_{t+1} = s_1 \mid X_t = s_2)$. The corresponding state diagram is shown in Figure~\ref{fig:two-state}.
+
+\begin{figure}[ht]
+  \centering
+  \begin{tikzpicture}[->, >=Stealth, shorten >=1pt, auto, node distance=4cm,
+                      thick, every state/.style={fill=gray!10, minimum size=1cm}]
+    \node[state] (s1) {$s_1$};
+    \node[state] (s2) [right=of s1] {$s_2$};
+
+    \path (s1) edge [bend left=20] node {$\alpha$} (s2)
+          (s2) edge [bend left=20] node {$\beta$} (s1)
+          (s1) edge [loop left]    node {$1-\alpha$} (s1)
+          (s2) edge [loop right]   node {$1-\beta$} (s2);
+  \end{tikzpicture}
+  \caption{A two-state Markov chain with transition probabilities $\alpha$ and $\beta$.}
+  \label{fig:two-state}
+\end{figure}
+
+Provided $\alpha, \beta > 0$, this chain is ergodic\footnote{A Markov chain is \emph{ergodic} if it is irreducible (every state is reachable from every other state) and aperiodic (the chain does not cycle among subsets of states with a fixed period). An ergodic chain converges to a unique stationary distribution regardless of the initial state.} and admits the stationary\footnote{A distribution that, once reached, remains unchanged under further transitions of the chain.} distribution
+\begin{equation}
+  \boldsymbol{\mu}^* = \left(\frac{\beta}{\alpha + \beta},\; \frac{\alpha}{\alpha + \beta}\right).
+\end{equation}
+
+\section{Markov Decision Processes}
+
+A Markov decision process extends the Markov chain of Section~1 by introducing \emph{actions} and \emph{rewards}. Where a Markov chain evolves passively according to fixed transition probabilities, an MDP allows an agent to \emph{choose} an action at each time step, thereby influencing both the transition to the next state and the reward received. This formulation originates with Bellman \cite{bellman1957}, who studied the asymptotic behavior of nonlinear recurrence relations arising from dynamic programming.
+
+\subsection{Formal Definition}
+
+A Markov decision process is defined by the tuple $(\mathcal{S}, \mathcal{A}, p, r, \gamma)$:
+
+\begin{itemize}
+  \item $\mathcal{S} = \{s_1, s_2, \dots, s_n\}$: a finite set of \textbf{states}, as in Section~1.
+  \item $\mathcal{A} = \{a_1, a_2, \dots, a_m\}$: a finite set of \textbf{actions} (or decisions) available to the agent.
+  \item $p_{ij}(a)$: the \textbf{transition probability} of moving from state $s_i$ to state $s_j$ when action $a$ is taken. For each state $s_i$ and action $a$,
+  \begin{equation}
+    p_{ij}(a) \geq 0 \quad \text{and} \quad \sum_{j=1}^{n} p_{ij}(a) = 1.
+  \end{equation}
+  Note that the transition probabilities now depend on the chosen action---this is the key departure from the passive Markov chain, where $p_{ij}$ was fixed.
+  \item $r(s_i, a)$: the \textbf{immediate reward} (or return) received when action $a$ is taken in state $s_i$.
+  \item $\gamma \in [0, 1)$: a \textbf{discount factor} that weights future rewards relative to immediate ones.
+\end{itemize}
+
+\subsection{Policies}
+
+A \textbf{policy} $\pi : \mathcal{S} \to \mathcal{A}$ is a rule that specifies which action to take in each state. Under a fixed policy $\pi$, the MDP reduces to an ordinary Markov chain with transition probabilities $p_{ij}(\pi(s_i))$.
+
+\subsection{The Value Function and Bellman's Equation}
+
+Following Bellman's approach, we seek a \textbf{value function} $V : \mathcal{S} \to \mathbb{R}$ that assigns to each state the maximum total discounted reward obtainable from that state onward. Formally, for a policy $\pi$ the value of state $s_i$ is
+\begin{equation}
+  V^\pi(s_i) = \mathbb{E}\!\left[\sum_{t=0}^{\infty} \gamma^t\, r(X_t, \pi(X_t)) \;\middle|\; X_0 = s_i\right],
+\end{equation}
+where $X_t \in \mathcal{S}$ is the state at time $t$ and the expectation is over the stochastic transitions. The \textbf{optimal value function} is then $V^*(s_i) = \max_\pi V^\pi(s_i)$. Bellman showed that $V^*$ must satisfy the recurrence relation
+\begin{equation}
+  V^*(s_i) = \max_{a \in \mathcal{A}} \left[ r(s_i, a) + \gamma \sum_{j=1}^{n} p_{ij}(a)\, V^*(s_j) \right], \quad i = 1, 2, \dots, n.
+\end{equation}
+This is the \textbf{Bellman equation}. It expresses a principle of optimality: the value of a state equals the best immediate reward plus the discounted expected value of the successor state, maximized over all available actions.
+
+In Bellman's original notation \cite{bellman1957}, this appears as the nonlinear recurrence
+\begin{equation}
+  f_N(s_i) = \max_{a} \left[ b(s_i, a) + \sum_{j=1}^{n} a_{ij}(a)\, f_{N-1}(s_j) \right],
+\end{equation}
+where $f_N(s_i)$ is the optimal return over $N$ remaining stages, $b(s_i, a)$ is the immediate return, and $a_{ij}(a)$ are the transition coefficients. Our formulation above corresponds to the infinite-horizon, discounted case obtained by letting $N \to \infty$ with discount factor $\gamma$.
+
+The optimal policy $\pi^*$ is then the one that achieves the maximum in the Bellman equation at every state:
+\begin{equation}
+  \pi^*(s_i) = \arg\max_{a \in \mathcal{A}} \left[ r(s_i, a) + \gamma \sum_{j=1}^{n} p_{ij}(a)\, V^*(s_j) \right].
+\end{equation}
+
+\subsection{Examples}
+
+\subsubsection{Example 1: Basic Binary MDP}
+
+Consider an MDP with two states $\mathcal{S} = \{s_1, s_2\}$ and two actions $\mathcal{A} = \{a_1, a_2\}$. The transition probabilities and rewards are:
+
+\begin{center}
+\begin{tabular}{cccc}
+  State & Action & Transitions & Reward \\
+  \hline
+  $s_1$ & $a_1$ & $p_{11}(a_1) = 0.8,\; p_{12}(a_1) = 0.2$ & $r(s_1, a_1) = 5$ \\
+  $s_1$ & $a_2$ & $p_{11}(a_2) = 0.3,\; p_{12}(a_2) = 0.7$ & $r(s_1, a_2) = 1$ \\
+  $s_2$ & $a_1$ & $p_{21}(a_1) = 0.6,\; p_{22}(a_1) = 0.4$ & $r(s_2, a_1) = 2$ \\
+  $s_2$ & $a_2$ & $p_{21}(a_2) = 0.1,\; p_{22}(a_2) = 0.9$ & $r(s_2, a_2) = 8$ \\
+\end{tabular}
+\end{center}
+
+The corresponding decision diagram is shown in Figure~\ref{fig:mdp-two-state}. Each state node (solid outline) branches into action nodes (dotted outline), which in turn lead probabilistically to successor states.
+
+\begin{figure}[ht]
+  \centering
+  \begin{tikzpicture}[->, >=Stealth, shorten >=1pt, auto,
+                      thick,
+                      state/.style={draw, circle, fill=gray!10, minimum size=1cm},
+                      action/.style={draw, dotted, rectangle, rounded corners=3pt,
+                                     minimum size=0.7cm, inner sep=2pt, fill=white}]
+
+    % State nodes
+    \node[state] (s1) {$s_1$};
+    \node[state] (s2) [right=8cm of s1] {$s_2$};
+
+    % Action nodes for s1
+    \node[action] (s1a1) [above right=1.5cm and 1.5cm of s1] {$s_1, a_1$};
+    \node[action] (s1a2) [below right=1.5cm and 1.5cm of s1] {$s_1, a_2$};
+
+    % Action nodes for s2
+    \node[action] (s2a1) [above left=1.5cm and 1.5cm of s2] {$s_2, a_1$};
+    \node[action] (s2a2) [below left=1.5cm and 1.5cm of s2] {$s_2, a_2$};
+
+    % Edges: states to action nodes
+    \path (s1) edge (s1a1)
+          (s1) edge (s1a2)
+          (s2) edge (s2a1)
+          (s2) edge (s2a2);
+
+    % Edges: action nodes to successor states (s1's actions)
+    \path (s1a1) edge [bend left=15] node[above right] {$0.8$} (s1)
+          (s1a1) edge node[above] {$0.2$} (s2)
+          (s1a2) edge [bend right=15] node[below right] {$0.3$} (s1)
+          (s1a2) edge node[below] {$0.7$} (s2);
+
+    % Edges: action nodes to successor states (s2's actions)
+    \path (s2a1) edge node[above] {$0.6$} (s1)
+          (s2a1) edge [bend left=15] node[above left] {$0.4$} (s2)
+          (s2a2) edge node[below] {$0.1$} (s1)
+          (s2a2) edge [bend right=15] node[below left] {$0.9$} (s2);
+
+    % Reward labels
+    \node[above=0.1cm of s1a1, font=\small\itshape] {$r=5$};
+    \node[below=0.1cm of s1a2, font=\small\itshape] {$r=1$};
+    \node[above=0.1cm of s2a1, font=\small\itshape] {$r=2$};
+    \node[below=0.1cm of s2a2, font=\small\itshape] {$r=8$};
+
+  \end{tikzpicture}
+  \caption{A two-state MDP. Solid circles are states; dotted rectangles are action (decision) nodes labeled $(s, a)$. Edges from action nodes to states are labeled with transition probabilities. Rewards are shown in italics above or below each action node.}
+  \label{fig:mdp-two-state}
+\end{figure}
+
+With discount factor $\gamma = 0.9$, the Bellman equation gives the system
+\begin{align}
+  V^*(s_1) &= \max\!\Big\{ \underbrace{5 + 0.9\big[0.8\, V^*(s_1) + 0.2\, V^*(s_2)\big]}_{a_1},\;
+               \underbrace{1 + 0.9\big[0.3\, V^*(s_1) + 0.7\, V^*(s_2)\big]}_{a_2} \Big\}, \\
+  V^*(s_2) &= \max\!\Big\{ \underbrace{2 + 0.9\big[0.6\, V^*(s_1) + 0.4\, V^*(s_2)\big]}_{a_1},\;
+               \underbrace{8 + 0.9\big[0.1\, V^*(s_1) + 0.9\, V^*(s_2)\big]}_{a_2} \Big\}.
+\end{align}
+
+To solve, we guess that the optimal policy is $\pi^*(s_1) = a_1$ and $\pi^*(s_2) = a_2$ (choosing the high-reward action in each state) and verify. Under this candidate the Bellman equations become linear:
+\begin{align}
+  V^*(s_1) &= 5 + 0.9\big[0.8\, V^*(s_1) + 0.2\, V^*(s_2)\big], \\
+  V^*(s_2) &= 8 + 0.9\big[0.1\, V^*(s_1) + 0.9\, V^*(s_2)\big].
+\end{align}
+Rearranging,
+\begin{align}
+  (1 - 0.72)\, V^*(s_1) - 0.18\, V^*(s_2) &= 5, \\
+  -0.09\, V^*(s_1) + (1 - 0.81)\, V^*(s_2) &= 8,
+\end{align}
+i.e.,
+\begin{align}
+  0.28\, V^*(s_1) - 0.18\, V^*(s_2) &= 5, \\
+  -0.09\, V^*(s_1) + 0.19\, V^*(s_2) &= 8.
+\end{align}
+Solving yields $V^*(s_1) \approx 64.59$ and $V^*(s_2) \approx 72.70$. To verify optimality, we check that the alternative action does not yield a higher value at either state:
+\begin{align}
+  \text{At } s_1\!: \quad a_2 &\implies 1 + 0.9\big[0.3(64.59) + 0.7(72.70)\big] \approx 64.24 < 64.59, \\
+  \text{At } s_2\!: \quad a_1 &\implies 2 + 0.9\big[0.6(64.59) + 0.4(72.70)\big] \approx 63.05 < 72.70.
+\end{align}
+Since neither alternative improves the value, the candidate policy is confirmed optimal:
+\begin{equation}
+  \pi^*(s_1) = a_1, \qquad \pi^*(s_2) = a_2.
+\end{equation}
+The agent should take action $a_1$ (high immediate reward, likely stay in $s_1$) when in state $s_1$, and action $a_2$ (high immediate reward, likely stay in $s_2$) when in state $s_2$.
+
+The following Python code verifies this solution via value iteration:
+
+\begin{lstlisting}[caption={Value iteration for the two-state MDP example.}]
+import numpy as np
+
+V = np.array([0.0, 0.0])
+gamma = 0.9
+
+for i in range(10000):
+    V1_a1 = 5 + gamma * (0.8 * V[0] + 0.2 * V[1])
+    V1_a2 = 1 + gamma * (0.3 * V[0] + 0.7 * V[1])
+    V2_a1 = 2 + gamma * (0.6 * V[0] + 0.4 * V[1])
+    V2_a2 = 8 + gamma * (0.1 * V[0] + 0.9 * V[1])
+
+    V_new = np.array([max(V1_a1, V1_a2), max(V2_a1, V2_a2)])
+    if np.max(np.abs(V_new - V)) < 1e-10:
+        print(f"Converged at iteration {i}")
+        break
+    V = V_new
+
+print(f"V*(s1) = {V[0]:.2f}")  # 64.59
+print(f"V*(s2) = {V[1]:.2f}")  # 72.70
+\end{lstlisting}
+
+\subsubsection{Example 2: Simple Asset Maintenance MDP}
+
+Consider an asset that is either operational or failed. The agent must decide at each time step whether to do nothing or replace the asset. The MDP is defined by $\mathcal{S} = \{\text{Op}, \text{Fail}\}$, $\mathcal{A} = \{\text{Do Nothing}, \text{Replace}\}$, and discount factor $\gamma = 0.9$. The state value of being operational is $+1$ unit per period and the penalty for being in a failed state is $-10$ units per period. Replacement costs $5$ units regardless of the current state; doing nothing is free. The net reward is therefore $r(s, a) = (\text{state value}) - (\text{action cost})$:
+
+\begin{center}
+\begin{tabular}{cccc}
+  State & Action & Transitions & Reward \\
+  \hline
+  Op & Do Nothing & $p(\text{Op}\!\to\!\text{Op}) = 0.9,\; p(\text{Op}\!\to\!\text{Fail}) = 0.1$ & $r = 1$ \\
+  Op & Replace & $p(\text{Op}\!\to\!\text{Op}) = 1.0$ & $r = -4$ \\
+  Fail & Do Nothing & $p(\text{Fail}\!\to\!\text{Fail}) = 1.0$ & $r = -10$ \\
+  Fail & Replace & $p(\text{Fail}\!\to\!\text{Op}) = 1.0$ & $r = -15$ \\
+\end{tabular}
+\end{center}
+
+An operational asset that is left alone fails with probability $0.1$ each period; once failed, it remains failed until replaced. Replacement always restores the asset to operational.
+
+\begin{figure}[ht]
+  \centering
+  \begin{tikzpicture}[->, >=Stealth, shorten >=1pt, auto,
+                      thick,
+                      state/.style={draw, circle, fill=gray!10, minimum size=1cm},
+                      action/.style={draw, dotted, rectangle, rounded corners=3pt,
+                                     minimum size=0.7cm, inner sep=2pt, fill=white}]
+
+    % State nodes
+    \node[state] (op) {Op};
+    \node[state] (fail) [right=8cm of op] {Fail};
+
+    % Action nodes for Op
+    \node[action] (op_dn) [above right=1.5cm and 1.5cm of op] {Op, DN};
+    \node[action] (op_rep) [below right=1.5cm and 1.5cm of op] {Op, Rep};
+
+    % Action nodes for Fail
+    \node[action] (fail_dn) [above left=1.5cm and 1.5cm of fail] {Fail, DN};
+    \node[action] (fail_rep) [below left=1.5cm and 1.5cm of fail] {Fail, Rep};
+
+    % Edges: states to action nodes
+    \path (op) edge (op_dn)
+          (op) edge (op_rep)
+          (fail) edge (fail_dn)
+          (fail) edge (fail_rep);
+
+    % Edges: Op actions
+    \path (op_dn) edge [bend left=15] node[above right] {$0.9$} (op)
+          (op_dn) edge node[above] {$0.1$} (fail)
+          (op_rep) edge [bend right=15] node[below right] {$1.0$} (op);
+
+    % Edges: Fail actions
+    \path (fail_dn) edge [bend left=15] node[above left] {$1.0$} (fail)
+          (fail_rep) edge node[below] {$1.0$} (op);
+
+    % Reward labels
+    \node[above=0.1cm of op_dn, font=\small\itshape] {$r=1$};
+    \node[below=0.1cm of op_rep, font=\small\itshape] {$r=-4$};
+    \node[above=0.1cm of fail_dn, font=\small\itshape] {$r=-10$};
+    \node[below=0.1cm of fail_rep, font=\small\itshape] {$r=-15$};
+
+  \end{tikzpicture}
+  \caption{Asset maintenance MDP. DN = Do Nothing, Rep = Replace.}
+  \label{fig:mdp-asset}
+\end{figure}
+
+The Bellman equation gives:
+\begin{align}
+  V^*(\text{Op}) &= \max\!\Big\{ \underbrace{1 + 0.9\big[0.9\, V^*(\text{Op}) + 0.1\, V^*(\text{Fail})\big]}_{\text{Do Nothing}},\;
+               \underbrace{-4 + 0.9\, V^*(\text{Op})}_{\text{Replace}} \Big\}, \\
+  V^*(\text{Fail}) &= \max\!\Big\{ \underbrace{-10 + 0.9\, V^*(\text{Fail})}_{\text{Do Nothing}},\;
+               \underbrace{-15 + 0.9\, V^*(\text{Op})}_{\text{Replace}} \Big\}.
+\end{align}
+
+The intuition is clear: an operational asset should be left alone (avoiding the unnecessary replacement cost), while a failed asset should be replaced (the one-time cost of $5$ is far preferable to accumulating $-10$ per period indefinitely). We guess $\pi^*(\text{Op}) = \text{Do Nothing}$ and $\pi^*(\text{Fail}) = \text{Replace}$ and verify. Under this candidate:
+\begin{align}
+  V^*(\text{Op}) &= 1 + 0.9\big[0.9\, V^*(\text{Op}) + 0.1\, V^*(\text{Fail})\big], \\
+  V^*(\text{Fail}) &= -15 + 0.9\, V^*(\text{Op}).
+\end{align}
+Rearranging,
+\begin{align}
+  0.19\, V^*(\text{Op}) - 0.09\, V^*(\text{Fail}) &= 1, \\
+  -0.9\, V^*(\text{Op}) + V^*(\text{Fail}) &= -15.
+\end{align}
+Solving yields $V^*(\text{Op}) \approx -3.21$ and $V^*(\text{Fail}) \approx -17.89$. Both values are negative because maintenance costs and failure penalties erode returns over the infinite horizon. To verify optimality:
+\begin{align}
+  \text{At Op:} \quad \text{Replace} &\implies -4 + 0.9(-3.21) \approx -6.89 < -3.21, \\
+  \text{At Fail:} \quad \text{Do Nothing} &\implies -10 + 0.9(-17.89) \approx -26.10 < -17.89.
+\end{align}
+Neither alternative improves the value, confirming the optimal policy:
+\begin{equation}
+  \pi^*(\text{Op}) = \text{Do Nothing}, \qquad \pi^*(\text{Fail}) = \text{Replace}.
+\end{equation}
+
+The following Python code verifies this solution via value iteration:
+
+\begin{lstlisting}[caption={Value iteration for the asset maintenance MDP.}]
+import numpy as np
+
+V = np.array([0.0, 0.0])  # [V(Op), V(Fail)]
+gamma = 0.9
+
+for i in range(10000):
+    V_op_dn  = 1  + gamma * (0.9 * V[0] + 0.1 * V[1])
+    V_op_rep = -4 + gamma * (1.0 * V[0])
+    V_fl_dn  = -10 + gamma * (1.0 * V[1])
+    V_fl_rep = -15 + gamma * (1.0 * V[0])
+
+    V_new = np.array([max(V_op_dn, V_op_rep), max(V_fl_dn, V_fl_rep)])
+    if np.max(np.abs(V_new - V)) < 1e-10:
+        print(f"Converged at iteration {i}")
+        break
+    V = V_new
+
+print(f"V*(Op)   = {V[0]:.2f}")  # -3.21
+print(f"V*(Fail) = {V[1]:.2f}")  # -17.89
+\end{lstlisting}
+
+\section{Partially Observable Markov Decision Processes}
+
+In the MDP formulation of Section~2, the agent observes the state directly at each time step. In many real-world problems this assumption is unrealistic: a robot may not know its exact position, a physician cannot observe a patient's internal state, and a maintenance operator may not know whether a machine component has degraded. A \textbf{partially observable Markov decision process} (POMDP) extends the MDP by introducing \emph{partial observability}: the agent cannot see the true state but instead receives noisy observations that depend probabilistically on it. This formulation was introduced by \AA str\"om \cite{astrom1965} and developed algorithmically by Smallwood and Sondik \cite{smallwood1973}.
+
+\subsection{Formal Definition}
+
+A POMDP is defined by the tuple $(\mathcal{S}, \mathcal{A}, p, r, \Omega, O, \gamma)$:
+
+\begin{itemize}
+  \item $\mathcal{S}$, $\mathcal{A}$, $p_{ij}(a)$, $r(s_i, a)$, and $\gamma$: as in the MDP of Section~2.
+  \item $\Omega = \{o_1, o_2, \dots, o_k\}$: a finite set of \textbf{observations} the agent may receive.
+  \item $O(o \mid s', a)$: the \textbf{observation function}, giving the probability of receiving observation $o$ after taking action $a$ and arriving in state $s'$. For each $s'$ and $a$,
+  \begin{equation}
+    O(o \mid s', a) \geq 0 \quad \text{and} \quad \sum_{o \in \Omega} O(o \mid s', a) = 1.
+  \end{equation}
+\end{itemize}
+
+When $|\Omega| = |\mathcal{S}|$ and $O(o_i \mid s_i, a) = 1$ for all $a$, each observation reveals the state exactly and the POMDP reduces to an MDP.
+
+\subsection{Belief States}
+
+Since the agent cannot observe the state directly, it maintains a \textbf{belief state} $\mathbf{b}$, a probability distribution over $\mathcal{S}$:
+\begin{equation}
+  \mathbf{b} = (b(s_1), b(s_2), \dots, b(s_n)), \quad b(s_i) \geq 0, \quad \sum_{i=1}^{n} b(s_i) = 1,
+\end{equation}
+where $b(s_i)$ is the agent's probability that the current state is $s_i$. After taking action $a$ and receiving observation $o$, the belief is updated via Bayes' rule:
+\begin{equation} \label{eq:belief-update}
+  b'(s') = \frac{O(o \mid s', a) \displaystyle\sum_{s \in \mathcal{S}} p(s' \mid s, a)\, b(s)}{\displaystyle\sum_{s'' \in \mathcal{S}} O(o \mid s'', a) \sum_{s \in \mathcal{S}} p(s'' \mid s, a)\, b(s)}.
+\end{equation}
+The numerator first propagates the belief forward through the transition model (prediction), then weights by the observation likelihood (update). The denominator normalizes.
+
+The belief state is a \emph{sufficient statistic}: it captures all information from the history of actions and observations that is relevant to future decisions.
+
+\subsection{The Value Function and Bellman's Equation}
+
+The key insight, due to \AA str\"om \cite{astrom1965}, is that a POMDP can be reformulated as a fully observable MDP over the \emph{belief space}---the $(n-1)$-dimensional probability simplex. In this \textbf{belief MDP}, the ``state'' is the belief $\mathbf{b}$, the expected immediate reward for taking action $a$ is
+\begin{equation}
+  \rho(\mathbf{b}, a) = \sum_{s \in \mathcal{S}} b(s)\, r(s, a),
+\end{equation}
+and the Bellman equation becomes
+\begin{equation}
+  V^*(\mathbf{b}) = \max_{a \in \mathcal{A}} \left[ \rho(\mathbf{b}, a) + \gamma \sum_{o \in \Omega} P(o \mid \mathbf{b}, a)\, V^*(\mathbf{b}_{a,o}') \right],
+\end{equation}
+where $P(o \mid \mathbf{b}, a) = \sum_{s'} O(o \mid s', a) \sum_{s} p(s' \mid s, a)\, b(s)$ is the probability of observing $o$, and $\mathbf{b}_{a,o}'$ is the updated belief from (\ref{eq:belief-update}).
+
+Unlike the MDP Bellman equation, which ranges over a finite set of states, this equation ranges over a \emph{continuous} belief space. For finite-horizon problems, Smallwood and Sondik \cite{smallwood1973} showed that $V^*$ is piecewise linear and convex over the belief simplex, which enables exact solution via alpha-vector methods. In general, however, solving POMDPs exactly is PSPACE-complete \cite{papadimitriou1987}, and practical algorithms rely on point-based approximations or online search.
+
+\subsection{Example: The Tiger Problem}
+
+The \textbf{Tiger Problem} \cite{kaelbling1998} is a canonical POMDP example. An agent faces two closed doors. Behind one door is a tiger (penalty $-100$); behind the other is a treasure (reward $+10$). The agent does not know which door hides the tiger but may \emph{listen} for a small cost ($-1$) to receive a noisy clue.
+
+Formally: $\mathcal{S} = \{\text{TL}, \text{TR}\}$ (tiger left / tiger right), $\mathcal{A} = \{\text{listen}, \text{open-left}, \text{open-right}\}$, and $\Omega = \{\text{HL}, \text{HR}\}$ (hear left / hear right). Listening is $85\%$ accurate:
+\begin{equation}
+  O(\text{HL} \mid \text{TL}, \text{listen}) = 0.85, \quad O(\text{HR} \mid \text{TL}, \text{listen}) = 0.15,
+\end{equation}
+and symmetrically for state TR. Opening a door yields $+10$ (treasure) or $-100$ (tiger) and resets the problem with the tiger placed uniformly at random.
+
+Rewards:
+\begin{center}
+\begin{tabular}{lcc}
+  Action & Tiger behind chosen door & Tiger behind other door \\
+  \hline
+  Listen & $-1$ & $-1$ \\
+  Open door & $-100$ & $+10$ \\
+\end{tabular}
+\end{center}
+
+Starting from the uniform belief $b(\text{TL}) = 0.5$, the agent listens and hears the tiger on the left. Applying (\ref{eq:belief-update}):
+\begin{equation}
+  b'(\text{TL}) = \frac{0.85 \times 0.5}{0.85 \times 0.5 + 0.15 \times 0.5} = 0.85.
+\end{equation}
+After a second listen that again indicates left:
+\begin{equation}
+  b''(\text{TL}) = \frac{0.85 \times 0.85}{0.85 \times 0.85 + 0.15 \times 0.15} \approx 0.97.
+\end{equation}
+Now sufficiently confident the tiger is on the left, the agent opens the right door.
+
+The optimal policy has an intuitive structure: when the belief is near $0.5$ (high uncertainty), listen to gather information; once the belief crosses a threshold (high confidence), open the door away from the tiger. This illustrates a central theme of POMDPs---\emph{information has value}. The listen action has negative immediate reward but reduces uncertainty, enabling better future decisions. This tradeoff between gathering information and acting on it is the hallmark of decision-making under partial observability.
+
+\section{Multi-Armed Bandit Problems}
+
+The \textbf{multi-armed bandit} (MAB) problem isolates a fundamental challenge that appears throughout the preceding sections: the tradeoff between \emph{exploration} (gathering information) and \emph{exploitation} (acting on current knowledge). The name comes from slot machines, colloquially called ``one-armed bandits.'' An agent faces $K$ such machines, each with an unknown reward distribution, and must decide which arm to pull at each time step to maximize cumulative reward.
+
+The MAB is a degenerate MDP with a single state: the only decision is which action (arm) to take, and there are no state transitions. It can also be viewed as a POMDP in which the hidden state is the vector of true arm means and each reward observation provides partial information about them. The Bayesian perspective on bandits---where the agent maintains a posterior over the unknown parameters---connects directly to the belief-state framework of Section~3.
+
+The problem was first studied by Thompson \cite{thompson1933} and formalized in its modern form by Robbins \cite{robbins1952}.
+
+\subsection{Formal Definition}
+
+An agent faces $K$ arms. Each arm $i \in \{1, \dots, K\}$ generates i.i.d.\ rewards from an unknown distribution with mean $\mu_i$. At each round $t = 1, 2, \dots, T$, the agent selects an arm $I_t$ and receives reward $X_{I_t, t}$. The agent's goal is to maximize cumulative reward, or equivalently to minimize \textbf{cumulative regret}:
+\begin{equation}
+  R_T = T \mu^* - \sum_{t=1}^{T} \mathbb{E}[X_{I_t, t}] = \sum_{i:\, \mu_i < \mu^*} \Delta_i \cdot \mathbb{E}[T_i(T)],
+\end{equation}
+where $\mu^* = \max_i \mu_i$ is the mean of the best arm, $\Delta_i = \mu^* - \mu_i$ is the \textbf{gap} (suboptimality) of arm~$i$, and $T_i(T)$ is the number of times arm~$i$ is pulled in $T$ rounds. Regret measures how much reward is lost by not always pulling the best arm.
+
+\subsection{Strategies}
+
+\subsubsection{$\varepsilon$-Greedy}
+
+The simplest bandit strategy is $\varepsilon$-greedy: with probability $1 - \varepsilon$, pull the arm with the highest empirical mean (exploit); with probability $\varepsilon$, pull an arm uniformly at random (explore). While intuitive, a fixed $\varepsilon$ yields linear regret because the agent continues exploring at rate $\varepsilon$ indefinitely, even after the best arm is identified. Decaying $\varepsilon_t \propto t^{-1/3}$ improves this to $O(T^{2/3})$, but this is still far worse than the $O(\ln T)$ achievable by the methods below.
+
+\subsubsection{Upper Confidence Bound (UCB1)}
+
+The UCB1 algorithm \cite{auer2002} embodies the principle of \emph{optimism in the face of uncertainty}. After pulling each arm once, at every subsequent round the agent selects
+\begin{equation}
+  I_t = \arg\max_{i \in \{1,\dots,K\}} \left[ \hat{\mu}_i + \sqrt{\frac{2 \ln t}{n_i}} \right],
+\end{equation}
+where $\hat{\mu}_i$ is the empirical mean reward of arm~$i$ and $n_i$ is the number of times it has been pulled. The first term exploits current estimates; the second is an \emph{exploration bonus} that inflates the index of under-sampled arms. Arms with fewer pulls have wider confidence intervals and thus receive higher indices, ensuring they are eventually tried.
+
+\subsubsection{Thompson Sampling}
+
+Thompson Sampling \cite{thompson1933} takes a Bayesian approach. The agent maintains a posterior distribution over each arm's mean and, at each round, \emph{samples} from these posteriors and pulls the arm whose sample is highest.
+
+For Bernoulli arms with unknown success probability $\theta_i$, a natural prior is $\theta_i \sim \text{Beta}(1, 1)$ (uniform). After observing $S_i$ successes and $F_i$ failures on arm~$i$, the posterior is $\theta_i \sim \text{Beta}(S_i + 1, F_i + 1)$. The algorithm is:
+\begin{enumerate}
+  \item For each arm $i$, sample $\tilde{\theta}_i \sim \text{Beta}(S_i + 1, F_i + 1)$.
+  \item Pull arm $I_t = \arg\max_i \tilde{\theta}_i$.
+  \item Observe reward $r_t \in \{0, 1\}$ and update: if $r_t = 1$, set $S_{I_t} \leftarrow S_{I_t} + 1$; otherwise $F_{I_t} \leftarrow F_{I_t} + 1$.
+\end{enumerate}
+When the posterior is concentrated on a high mean, the samples are likely to be high (exploitation); when it is diffuse, samples are variable and the arm may be tried (exploration). The Beta--Bernoulli conjugacy ensures the posterior update is a simple counter increment.
+
+\subsubsection{The Gittins Index}
+
+For the discounted infinite-horizon Bayesian bandit (discount factor $\gamma$, known prior on each arm), Gittins \cite{gittins1979} proved a remarkable result: the optimal policy is an \emph{index policy}. Each arm~$i$ is assigned a \textbf{Gittins index} $G_i$ computed from its posterior alone, and the agent always pulls the arm with the highest index. The index can be interpreted as the fair price at which the agent would be indifferent between continuing to pull the arm and receiving a guaranteed constant payoff forever. The Gittins index theorem shows that the multi-arm problem decomposes into independent single-arm problems---a dramatic simplification. This optimality breaks down, however, when arms evolve even while not being pulled, motivating the restless bandit model of Section~5.
+
+\subsubsection{Successive Elimination}
+
+Rather than selecting arms via an index, \textbf{successive elimination} \cite{evendar2006} maintains a set of \emph{active} arms and permanently discards any arm whose upper confidence bound falls below another arm's lower confidence bound. Once eliminated, an arm is never pulled again. The algorithm achieves $O(K \ln T)$ regret while offering a conceptually different mechanism: instead of balancing exploration and exploitation continuously, it reduces the problem size over time.
+
+\subsubsection{KL-UCB}
+
+\textbf{KL-UCB} \cite{garivier2011} replaces the Hoeffding-based confidence bound in UCB1 with a tighter bound derived from the Kullback--Leibler divergence. At each round the agent selects $I_t = \arg\max_i \sup\{q : n_i \cdot \text{KL}(\hat{\mu}_i, q) \leq \ln t\}$, where $\text{KL}(\hat{\mu}_i, q)$ is the KL divergence between Bernoulli distributions with parameters $\hat{\mu}_i$ and $q$. The resulting bound is asymptotically optimal, matching the Lai--Robbins lower bound with the exact constant---an improvement over UCB1, which matches only up to a multiplicative factor.
+
+\subsubsection{EXP3}
+
+All strategies above assume \emph{stochastic} rewards (i.i.d.\ draws from fixed distributions). \textbf{EXP3} (Exponential-weight algorithm for Exploration and Exploitation) \cite{auer2002nonstochastic} handles the \emph{adversarial} setting, where rewards may be chosen by an adversary with no distributional assumption. The algorithm maintains a probability distribution over arms, updated via exponential weights on estimated rewards, and achieves $O(\sqrt{KT \ln K})$ regret against the best fixed arm in hindsight.
+
+\subsection{Regret Bounds}
+
+Lai and Robbins \cite{lai1985} established a fundamental \textbf{lower bound} on regret. For any consistent policy\footnote{A policy is \emph{consistent} if $\mathbb{E}[T_i(T)] = o(T^\alpha)$ for every suboptimal arm~$i$ and every $\alpha > 0$.},
+\begin{equation}
+  \liminf_{T \to \infty} \frac{\mathbb{E}[R_T]}{\ln T} \geq \sum_{i:\, \mu_i < \mu^*} \frac{\Delta_i}{\text{KL}(\nu_i, \nu^*)},
+\end{equation}
+where $\text{KL}(\nu_i, \nu^*)$ is the Kullback--Leibler divergence from arm~$i$'s distribution to the optimal arm's distribution. This says regret must grow at least logarithmically in $T$, and distinguishing a suboptimal arm from the best requires more pulls when their distributions are similar (small KL divergence).
+
+UCB1 achieves a finite-time upper bound of
+\begin{equation}
+  \mathbb{E}[R_T] \leq \sum_{i:\, \mu_i < \mu^*} \frac{8 \ln T}{\Delta_i} + \left(1 + \frac{\pi^2}{3}\right) \sum_i \Delta_i,
+\end{equation}
+which is $O(K \ln T)$---logarithmic in $T$ and matching the Lai--Robbins lower bound up to constants. Thompson Sampling also achieves asymptotically optimal regret \cite{auer2002}.
+
+\subsection{Examples}
+
+We illustrate each strategy on a common instance: $K = 3$ arms with Bernoulli success probabilities $\theta_1 = 0.3$, $\theta_2 = 0.7$, and $\theta_3 = 0.5$. Arm~2 is optimal; the agent does not know the $\theta_i$ and must learn from rewards.
+
+\subsubsection{$\varepsilon$-Greedy}
+
+Set $\varepsilon = 0.3$. After initializing by pulling each arm once, the agent exploits (pulls the arm with the highest empirical mean) with probability $0.7$ and explores (pulls a uniformly random arm) with probability $0.3$.
+
+\begin{center}
+\begin{tabular}{cclcl}
+  $t$ & Arm & Type & Reward & $\hat{\mu} = (\hat{\mu}_1, \hat{\mu}_2, \hat{\mu}_3)$ \\
+  \hline
+  1 & 1 & init & 0 & $(0.00,\; {-},\; {-})$ \\
+  2 & 2 & init & 1 & $(0.00,\; 1.00,\; {-})$ \\
+  3 & 3 & init & 1 & $(0.00,\; 1.00,\; 1.00)$ \\
+  4 & 2 & exploit & 1 & $(0.00,\; 1.00,\; 1.00)$ \\
+  5 & 2 & exploit & 0 & $(0.00,\; 0.67,\; 1.00)$ \\
+  6 & 3 & exploit & 0 & $(0.00,\; 0.67,\; 0.50)$ \\
+  7 & 2 & exploit & 1 & $(0.00,\; 0.75,\; 0.50)$ \\
+  8 & 1 & \textbf{explore} & 0 & $(0.00,\; 0.75,\; 0.50)$ \\
+  9 & 2 & exploit & 1 & $(0.00,\; 0.80,\; 0.50)$ \\
+  10 & 3 & \textbf{explore} & 0 & $(0.00,\; 0.80,\; 0.33)$ \\
+\end{tabular}
+\end{center}
+
+After ten rounds the pull counts are $n = (2, 5, 3)$. Arm~2 has been pulled most often, and its empirical mean ($0.80$) is close to the true $\theta_2 = 0.7$. But notice the two explore rounds ($t = 8, 10$): at $t = 8$, the agent wastes a pull on arm~1 despite strong evidence it is the worst arm. This is the fundamental limitation of $\varepsilon$-greedy---it explores \emph{uniformly at random}, directing equal attention to clearly bad and merely uncertain arms.
+
+\subsubsection{UCB1}
+
+We trace UCB1 through seven rounds on the same instance.
+
+\textbf{Rounds 1--3 (initialization):} Pull each arm once.
+\begin{center}
+\begin{tabular}{ccccl}
+  $t$ & Arm & Reward & $\hat{\mu}_i$ & \\
+  \hline
+  1 & 1 & 1 & $(1.00,\; {-},\; {-})$ & \\
+  2 & 2 & 1 & $(1.00,\; 1.00,\; {-})$ & \\
+  3 & 3 & 0 & $(1.00,\; 1.00,\; 0.00)$ & \\
+\end{tabular}
+\end{center}
+
+\textbf{Rounds 4--7 (UCB1 selection):} At each round, compute the index $\hat{\mu}_i + \sqrt{2 \ln t / n_i}$ and pull the arm with the highest value.
+
+\begin{center}
+\begin{tabular}{cccccl}
+  $t$ & UCB$_1$ & UCB$_2$ & UCB$_3$ & Arm & Reward \\
+  \hline
+  4 & $\mathbf{2.67}$ & $2.67$ & $1.67$ & 1 & 0 \\
+  5 & $1.77$ & $\mathbf{2.79}$ & $1.79$ & 2 & 1 \\
+  6 & $1.84$ & $\mathbf{2.34}$ & $1.89$ & 2 & 0 \\
+  7 & $1.90$ & $1.81$ & $\mathbf{1.97}$ & 3 & 1 \\
+\end{tabular}
+\end{center}
+
+After seven rounds the pull counts are $n = (2, 3, 2)$ and the empirical means are $\hat{\mu} = (0.50, 0.67, 0.50)$. Already arm~2 (the true best) has been pulled most often, while the exploration bonus ensures that arm~3 is revisited at $t = 7$ when its uncertainty grows large enough. Unlike $\varepsilon$-greedy, UCB1 directs exploration toward arms whose \emph{uncertainty} is high, not at random.
+
+\subsubsection{Thompson Sampling}
+
+Each arm begins with a uniform prior $\theta_i \sim \text{Beta}(1, 1)$. At each round, the agent samples from the current posteriors and pulls the arm with the highest sample.
+
+\begin{center}
+\begin{tabular}{ccccccl}
+  $t$ & $\tilde{\theta}_1$ & $\tilde{\theta}_2$ & $\tilde{\theta}_3$ & Arm & Reward & Posteriors \\
+  \hline
+  1 & 0.42 & $\mathbf{0.88}$ & 0.57 & 2 & 1 & $\text{B}(1,1),\; \text{B}(2,1),\; \text{B}(1,1)$ \\
+  2 & 0.71 & 0.60 & $\mathbf{0.82}$ & 3 & 0 & $\text{B}(1,1),\; \text{B}(2,1),\; \text{B}(1,2)$ \\
+  3 & 0.65 & $\mathbf{0.94}$ & 0.28 & 2 & 1 & $\text{B}(1,1),\; \text{B}(3,1),\; \text{B}(1,2)$ \\
+  4 & $\mathbf{0.85}$ & 0.78 & 0.14 & 1 & 0 & $\text{B}(1,2),\; \text{B}(3,1),\; \text{B}(1,2)$ \\
+  5 & 0.18 & $\mathbf{0.72}$ & 0.53 & 2 & 1 & $\text{B}(1,2),\; \text{B}(4,1),\; \text{B}(1,2)$ \\
+  6 & 0.33 & $\mathbf{0.91}$ & 0.27 & 2 & 0 & $\text{B}(1,2),\; \text{B}(4,2),\; \text{B}(1,2)$ \\
+  7 & 0.09 & $\mathbf{0.67}$ & 0.42 & 2 & 1 & $\text{B}(1,2),\; \text{B}(5,2),\; \text{B}(1,2)$ \\
+\end{tabular}
+\end{center}
+
+After seven rounds the pull counts are $n = (1, 5, 1)$. The posterior for arm~2 is $\text{Beta}(5, 2)$, with mean $5/7 \approx 0.71$---close to the true $\theta_2 = 0.7$---while the posteriors for arms~1 and~3 remain diffuse. At $t = 4$, arm~1's diffuse posterior $\text{Beta}(1, 1)$ happens to produce a high sample ($0.85$), triggering an exploration pull; the resulting failure shifts the posterior to $\text{Beta}(1, 2)$, making future high samples less likely. This illustrates how Thompson Sampling \emph{self-corrects}: it explores in proportion to the posterior probability that each arm is optimal, naturally reducing exploration of inferior arms as evidence accumulates.
+
+\subsubsection{The Gittins Index}
+
+The Gittins index is defined for the discounted Bayesian setting and requires computing the value of optimally playing a single arm against a known alternative---a calculation that does not reduce to a simple round-by-round trace. For a Beta--Bernoulli arm with posterior $\text{Beta}(\alpha, \beta)$ and discount factor $\gamma$, the index $G(\alpha, \beta, \gamma)$ can be computed numerically via dynamic programming or calibration. Tables of Gittins indices show, for example, that $G(1, 1, 0.9) \approx 0.7025$, meaning an arm with a uniform prior is worth playing as long as its ``retirement reward'' is below roughly $0.70$. As successes accumulate the index rises (e.g., $G(5, 2, 0.9) \approx 0.7867$); as failures accumulate it falls (e.g., $G(1, 2, 0.9) \approx 0.5000$). The agent always plays the arm with the highest current index, achieving the Bayes-optimal policy without ever computing a joint posterior over all arms.
+
+\section{Restless Bandit Problems}
+
+\begin{thebibliography}{9}
+
+\bibitem{markov1906}
+  \foreignlanguage{russian}{А.~А.~Марков,
+  <<Распространение закона больших чисел на величины, зависящие друг от друга>>,
+  \emph{Изв. физ.-матем. общ. Казан. ун-та}, 2-я сер., т.~15,
+  с.~135--156, 1906.}
+  [A.~A.~Markov, ``Extension of the law of large numbers to dependent quantities,''
+  \emph{Izvestiia Fiz.-Matem. Obshch. Kazan.\ Univ.}, 2nd Ser., vol.~15,
+  pp.~135--156, 1906.]
+
+\bibitem{bellman1957}
+  R.~Bellman,
+  ``A Markovian decision process,''
+  RAND Corporation, Santa Monica, CA, Paper P-1066, April 1957.
+
+\bibitem{astrom1965}
+  K.~J.~\AA str\"om,
+  ``Optimal control of Markov processes with incomplete state information~I,''
+  \emph{Journal of Mathematical Analysis and Applications},
+  vol.~10, pp.~174--205, 1965.
+
+\bibitem{smallwood1973}
+  R.~D.~Smallwood and E.~J.~Sondik,
+  ``The optimal control of partially observable Markov processes over a finite horizon,''
+  \emph{Operations Research},
+  vol.~21, no.~5, pp.~1071--1088, 1973.
+
+\bibitem{papadimitriou1987}
+  C.~H.~Papadimitriou and J.~N.~Tsitsiklis,
+  ``The complexity of Markov decision processes,''
+  \emph{Mathematics of Operations Research},
+  vol.~12, no.~3, pp.~441--450, 1987.
+
+\bibitem{kaelbling1998}
+  L.~P.~Kaelbling, M.~L.~Littman, and A.~R.~Cassandra,
+  ``Planning and acting in partially observable stochastic domains,''
+  \emph{Artificial Intelligence},
+  vol.~101, nos.~1--2, pp.~99--134, 1998.
+
+\bibitem{thompson1933}
+  W.~R.~Thompson,
+  ``On the likelihood that one unknown probability exceeds another in view of the evidence of two samples,''
+  \emph{Biometrika},
+  vol.~25, nos.~3--4, pp.~285--294, 1933.
+
+\bibitem{robbins1952}
+  H.~Robbins,
+  ``Some aspects of the sequential design of experiments,''
+  \emph{Bulletin of the American Mathematical Society},
+  vol.~58, pp.~527--535, 1952.
+
+\bibitem{gittins1979}
+  J.~C.~Gittins,
+  ``Bandit processes and dynamic allocation indices,''
+  \emph{Journal of the Royal Statistical Society: Series~B},
+  vol.~41, no.~2, pp.~148--177, 1979.
+
+\bibitem{lai1985}
+  T.~L.~Lai and H.~Robbins,
+  ``Asymptotically efficient adaptive allocation rules,''
+  \emph{Advances in Applied Mathematics},
+  vol.~6, pp.~4--22, 1985.
+
+\bibitem{auer2002}
+  P.~Auer, N.~Cesa-Bianchi, and P.~Fischer,
+  ``Finite-time analysis of the multiarmed bandit problem,''
+  \emph{Machine Learning},
+  vol.~47, pp.~235--256, 2002.
+
+\bibitem{auer2002nonstochastic}
+  P.~Auer, N.~Cesa-Bianchi, Y.~Freund, and R.~E.~Schapire,
+  ``The nonstochastic multiarmed bandit problem,''
+  \emph{SIAM Journal on Computing},
+  vol.~32, no.~1, pp.~48--77, 2002.
+
+\bibitem{evendar2006}
+  E.~Even-Dar, S.~Mannor, and Y.~Mansour,
+  ``Action elimination and stopping conditions for the multi-armed bandit and reinforcement learning problems,''
+  \emph{Journal of Machine Learning Research},
+  vol.~7, pp.~1079--1105, 2006.
+
+\bibitem{garivier2011}
+  A.~Garivier and O.~Capp\'e,
+  ``The KL-UCB algorithm for bounded stochastic bandits and beyond,''
+  in \emph{Proceedings of the 24th Annual Conference on Learning Theory (COLT)},
+  pp.~359--376, 2011.
+
+\end{thebibliography}
+
+\end{document}
