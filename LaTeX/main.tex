@@ -43,6 +43,10 @@
 This paper provides a self-contained overview of five core model classes in Markov-based sequential decision-making: Markov processes, Markov decision processes (MDPs), partially observable MDPs (POMDPs), multi-armed bandits, and restless bandits. The models are arranged in a progression of increasing generality, beginning with passive stochastic dynamics and culminating in problems where multiple evolving subsystems must be managed under combinatorial constraints. For each model class we present a formal definition, the principal theoretical results---including the Bellman equation, Bayesian belief updates, regret bounds, and the Whittle index---and one or more fully worked numerical examples with accompanying Python code. Bandit strategies covered include $\varepsilon$-greedy, UCB1, Thompson Sampling, the Gittins index, successive elimination, KL-UCB, and EXP3. We also briefly survey hidden Markov models, contextual bandits, Markov games, constrained MDPs, semi-Markov decision processes, and model-free reinforcement learning. A glossary of all technical terms is provided. The paper is intended as an accessible yet rigorous entry point for researchers and practitioners new to the field.
 \end{abstract}
 
+\newpage
+\tableofcontents
+\newpage
+
 \section{Introduction}
 
 Many problems in engineering, operations research, economics, and artificial intelligence share a common structure: an agent must make a sequence of decisions under uncertainty, where each decision influences future states of the world and the rewards that follow. The mathematical framework for such problems rests on the theory of Markov processes and their controlled extensions, a body of work spanning over a century---from Markov's original study of dependent random variables \cite{markov1906} through Bellman's dynamic programming \cite{bellman1957} to modern bandit algorithms deployed in clinical trials, online advertising, and autonomous systems.
