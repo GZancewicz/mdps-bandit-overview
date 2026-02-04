@@ -1,0 +1,403 @@
+\documentclass[12pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{geometry}
+\usepackage[unicode]{hyperref}
+\usepackage{booktabs}
+\usepackage{enumitem}
+
+\geometry{margin=1in}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{1em}
+
+\newtheorem{definition}{Definition}
+\newtheorem{remark}{Remark}
+
+\title{Waterworks Asset Rehabilitation as a Restless Bandit Problem:\\Formal Model Specification}
+\author{Gregory Zancewicz}
+\date{February 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This document provides a formal mathematical specification for a waterworks asset rehabilitation problem modeled as a restless bandit with soft budget constraints. The system consists of $N_a$ infrastructure assets across $N_c$ classes, each deteriorating according to a Weibull failure process. A central planner must allocate limited rehabilitation capacity each week to minimize cumulative consequence-of-failure--weighted failures, subject to annual spending limits. We define the state space, transition kernel, objective function, and constraint structure, then describe in detail how the Whittle index policy provides a tractable, near-optimal solution approach.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+%% ============================================================
+\section{Problem Description}
+%% ============================================================
+
+A water utility manages $N_a$ infrastructure assets (pipes, valves, pump stations, treatment components, etc.) drawn from $N_c$ asset classes. Each class $j \in \{1, \dots, N_c\}$ shares common physical characteristics: a median useful life $L_{50,j}$ (in years), a Weibull shape parameter $\beta_j > 1$ governing the failure hazard, a rehabilitation cost $c_j$, and a replacement cost $C_j > c_j$. Each individual asset $k$ additionally carries a \textbf{consequence-of-failure} score $\text{CoF}_k \in \{1, \dots, 10\}$, reflecting the community impact of its failure (proximity to schools, hospitals, major roads, population density, etc.). This score is not a monetary quantity.
+
+Assets deteriorate continuously whether or not they receive maintenance. At each decision epoch (one week), the planner may rehabilitate or replace at most $L$ assets total, drawn from a shared labor pool. Rehabilitation resets an asset to ``good as new'' condition at cost $c_j$; replacement of a failed asset achieves the same reset at the higher cost $C_j$. Failed assets remain out of service---accruing ongoing consequence-of-failure penalties---until actively replaced.
+
+The planner's objective is to minimize the discounted cumulative consequence-of-failure--weighted penalty from asset failures and degraded service, subject to a soft annual budget constraint on rehabilitation and replacement spending.
+
+This problem is a \textbf{restless bandit}: every asset's condition evolves at every time step regardless of whether it is acted upon, and a capacity constraint limits the number of simultaneous interventions.
+
+%% ============================================================
+\section{State Space}
+\label{sec:state}
+%% ============================================================
+
+\subsection{Per-Asset State}
+
+Each asset $k$ occupies a discrete state $s_k \in \mathcal{S} = \{1, 2, 3, 4, 5\}$ corresponding to a damage fraction bin:
+
+\begin{center}
+\begin{tabular}{cccl}
+  \toprule
+  State & Damage Fraction $d_k$ & Label & Interpretation \\
+  \midrule
+  1 & $[0,\; 0.25)$ & Good & Negligible deterioration \\
+  2 & $[0.25,\; 0.50)$ & Fair & Moderate wear, no intervention needed \\
+  3 & $[0.50,\; 0.75)$ & Poor & Significant deterioration, monitor closely \\
+  4 & $[0.75,\; 1.0)$ & Critical & Near end of life, high failure risk \\
+  5 & $\{1.0\}$ & Failed & Asset has failed, out of service \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+The damage fraction $d_k \in [0, 1]$ is a continuous quantity defined as the ratio of the asset's effective age to its class median life: $d_k = t_{\text{eff}} / L_{50,j}$, where $t_{\text{eff}}$ is the time elapsed since the last rehabilitation (or since installation). The discrete bin is determined by thresholding $d_k$.
+
+\subsection{Joint State}
+
+The global state at decision epoch $t$ is the vector $\mathbf{s}^t = (s_1^t, s_2^t, \dots, s_{N_a}^t) \in \mathcal{S}^{N_a}$. The joint state space has $5^{N_a}$ elements, which is astronomically large for any realistic $N_a$. This exponential blowup is the fundamental reason exact dynamic programming is intractable and motivates the Whittle index decomposition described in Section~\ref{sec:whittle}.
+
+%% ============================================================
+\section{Weibull Failure Model and Transition Kernel}
+\label{sec:transitions}
+%% ============================================================
+
+\subsection{Weibull Parameterization}
+
+Each asset class $j$ has time-to-failure distributed as $\text{Weibull}(\beta_j, \eta_j)$ with shape $\beta_j > 1$ (modeling wear-out) and scale
+\begin{equation}
+  \eta_j = \frac{L_{50,j}}{(\ln 2)^{1/\beta_j}},
+\end{equation}
+chosen so that the median life equals $L_{50,j}$. The cumulative failure probability by age $t$ (in years) is
+\begin{equation}
+  F_j(t) = 1 - \exp\!\left[-\left(\frac{t}{\eta_j}\right)^{\beta_j}\right],
+\end{equation}
+and the hazard rate (instantaneous failure rate conditional on survival to age $t$) is
+\begin{equation}
+  h_j(t) = \frac{\beta_j}{\eta_j}\left(\frac{t}{\eta_j}\right)^{\beta_j - 1}.
+\end{equation}
+Since $\beta_j > 1$, the hazard is increasing: older assets fail at a higher rate, consistent with wear-out degradation.
+
+\subsection{Mapping Age to Damage Fraction}
+
+The damage fraction for an asset of class $j$ at effective age $t$ is
+\begin{equation}
+  d_j(t) = \frac{t}{L_{50,j}}.
+\end{equation}
+At age $t = L_{50,j}$, we have $d = 1.0$ and $F_j(L_{50,j}) = 0.5$ by construction. Assets with $d \geq 1$ that have not yet failed are in the Critical bin (state 4) with very high failure probability.
+
+\subsection{Transition Probabilities Between Bins}
+
+The decision epoch is one week. Let $\Delta = 1/52$ years. For an asset of class $j$ currently in state $s$ with representative damage fraction $d_s$ (the midpoint of the bin), we need the probability of transitioning to each state $s'$ over one week.
+
+\subsubsection{Passive Transitions ($a_k = 0$: Do Nothing)}
+
+Under the passive action, the asset ages by $\Delta$ years. Two things can happen: the asset may fail (transition to state 5), or it survives and its damage fraction increases.
+
+The conditional probability of failure during one week, given survival to current age $t$, is
+\begin{equation}
+  p_{\text{fail}}(t) = 1 - \frac{S_j(t + \Delta)}{S_j(t)} = 1 - \exp\!\left[-\left(\frac{t + \Delta}{\eta_j}\right)^{\beta_j} + \left(\frac{t}{\eta_j}\right)^{\beta_j}\right],
+\end{equation}
+where $S_j(t) = 1 - F_j(t)$ is the survival function. This probability increases with $t$, reflecting the increasing hazard.
+
+For a bin $s$ with representative age $t_s = d_s \cdot L_{50,j}$, the passive transition probabilities are:
+\begin{align}
+  P(5 \mid s, a{=}0) &= p_{\text{fail}}(t_s), \\
+  P(s' \mid s, a{=}0) &= \big(1 - p_{\text{fail}}(t_s)\big) \cdot q(s' \mid s), \quad s' \in \{1,2,3,4\},
+\end{align}
+where $q(s' \mid s)$ is the probability that the surviving asset's updated damage fraction $d_s + \Delta / L_{50,j}$ falls in bin $s'$. In most cases this is deterministic (the asset stays in bin $s$ or advances to bin $s{+}1$), but at bin boundaries the transition may be split probabilistically if the damage increment carries the midpoint across a threshold.
+
+\begin{remark}
+From state 5 (Failed), the passive transition is $P(5 \mid 5, a{=}0) = 1$: a failed asset remains failed until actively replaced.
+\end{remark}
+
+\subsubsection{Active Transitions ($a_k = 1$: Rehabilitate or Replace)}
+
+Rehabilitation (from states 1--4) or replacement (from state 5) resets the asset to ``good as new'':
+\begin{equation}
+  P(1 \mid s, a{=}1) = 1 \quad \text{for all } s \in \{1, 2, 3, 4, 5\}.
+\end{equation}
+The effective age is reset to zero, and the Weibull clock restarts.
+
+%% ============================================================
+\section{Costs, Rewards, and Objective}
+\label{sec:objective}
+%% ============================================================
+
+\subsection{Cost Structure}
+
+The per-asset, per-epoch costs are:
+
+\begin{description}[leftmargin=2cm, style=nextline]
+  \item[Rehabilitation cost] If asset $k$ (class $j$) is rehabilitated from states 1--4: immediate cost $c_j$.
+  \item[Replacement cost] If asset $k$ (class $j$) is replaced from state 5 (Failed): immediate cost $C_j > c_j$.
+  \item[No-action cost] If $a_k = 0$: no direct financial cost for asset $k$ at this epoch.
+\end{description}
+
+\subsection{Consequence-of-Failure Penalty}
+
+The objective is to minimize consequence-of-failure--weighted penalties, not financial cost. Each asset $k$ carries a fixed severity score $\text{CoF}_k \in \{1, \dots, 10\}$. The per-epoch penalty for asset $k$ in state $s_k$ is
+\begin{equation}
+  r_k(s_k) =
+  \begin{cases}
+    0 & \text{if } s_k \in \{1, 2, 3\}, \\[4pt]
+    \text{CoF}_k \cdot \phi_{\text{crit}} & \text{if } s_k = 4 \text{ (Critical)}, \\[4pt]
+    \text{CoF}_k \cdot \phi_{\text{fail}} & \text{if } s_k = 5 \text{ (Failed)},
+  \end{cases}
+\end{equation}
+where $\phi_{\text{crit}}$ and $\phi_{\text{fail}}$ are penalty weights satisfying $0 \leq \phi_{\text{crit}} < \phi_{\text{fail}}$. Setting $\phi_{\text{crit}} > 0$ penalizes assets that are near failure even before they actually fail, creating urgency to intervene in the Critical state. Setting $\phi_{\text{crit}} = 0$ means only actual failures are penalized.
+
+\begin{remark}
+The penalty $r_k$ is a \emph{cost} (to be minimized), not a reward. We use ``reward'' loosely to match standard MDP/bandit terminology, with the understanding that the planner minimizes cumulative penalties.
+\end{remark}
+
+\subsection{Objective Function}
+
+Let $\gamma = (1 + r_{\text{ann}})^{-1/52}$ be the weekly discount factor, where $r_{\text{ann}}$ is the annual discount rate (e.g., the 10-year Treasury yield). The planner's objective is to choose a policy $\pi$ that minimizes the expected discounted cumulative penalty:
+\begin{equation}
+  \min_\pi \; \mathbb{E}_\pi\!\left[\sum_{t=0}^{\infty} \gamma^t \sum_{k=1}^{N_a} r_k(s_k^t)\right].
+\end{equation}
+
+\subsection{Constraints}
+
+\subsubsection{Capacity Constraint}
+
+At each epoch $t$, the total number of interventions (rehabilitations plus replacements) is bounded:
+\begin{equation}
+  \sum_{k=1}^{N_a} a_k^t \leq L, \quad \text{for all } t,
+\end{equation}
+where $a_k^t \in \{0, 1\}$ and $L$ is the weekly labor capacity.
+
+\subsubsection{Soft Budget Constraint}
+
+Annual spending is penalized rather than hard-capped. Let $Y$ index the year containing epoch $t$, and let $\text{cost}(k, s_k, a_k) = c_{j(k)} \cdot \mathbf{1}[a_k = 1,\, s_k \neq 5] + C_{j(k)} \cdot \mathbf{1}[a_k = 1,\, s_k = 5]$ be the intervention cost for asset $k$. The annual spend in year $Y$ is
+\begin{equation}
+  \text{Spend}_Y = \sum_{t \in Y} \sum_{k=1}^{N_a} \text{cost}(k, s_k^t, a_k^t).
+\end{equation}
+The budget constraint is incorporated via a penalty term added to the per-epoch cost:
+\begin{equation}
+  \text{penalty}_t = \mu \cdot \max\!\left(0,\; \text{Spend}_{Y(t)}^{\text{running}} - B\right),
+\end{equation}
+where $B$ is the annual budget, $\text{Spend}_{Y(t)}^{\text{running}}$ is the cumulative spend so far in the current year, and $\mu > 0$ is a penalty multiplier controlling the softness of the constraint. As $\mu \to \infty$, this approaches a hard constraint.
+
+\begin{remark}
+In the Whittle index framework (Section~\ref{sec:whittle}), the budget constraint is more naturally handled through a Lagrangian on intervention cost, as described below. The running-total formulation above is the full problem; the Whittle approach approximates it.
+\end{remark}
+
+%% ============================================================
+\section{Restless Bandit Formulation}
+\label{sec:bandit}
+%% ============================================================
+
+The waterworks rehabilitation problem maps to a restless bandit as follows:
+
+\begin{center}
+\begin{tabular}{ll}
+  \toprule
+  \textbf{Bandit Concept} & \textbf{Waterworks Interpretation} \\
+  \midrule
+  Arm $k$ & Asset $k$ \\
+  State $s_k$ & Damage bin $\in \{1, 2, 3, 4, 5\}$ \\
+  Active action ($a_k = 1$) & Rehabilitate or replace asset $k$ \\
+  Passive action ($a_k = 0$) & Do nothing; asset continues to age \\
+  Active transition & Reset to state 1 (Good) \\
+  Passive transition & Weibull-driven deterioration, possible failure \\
+  Per-arm reward & $-r_k(s_k)$ (negative of CoF-weighted penalty) \\
+  Activation constraint & At most $L$ assets per week \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+The problem is \emph{restless} because passive arms are not frozen: under $a_k = 0$, asset $k$ continues to deteriorate and may fail. This distinguishes the problem from a classical multi-armed bandit (where unplayed arms are static) and precludes the use of Gittins index optimality.
+
+The joint state space $\mathcal{S}^{N_a} = \{1,\dots,5\}^{N_a}$ grows exponentially in the number of assets, making exact dynamic programming infeasible for any realistic fleet size. This motivates the Whittle index heuristic.
+
+%% ============================================================
+\section{Whittle Index Policy}
+\label{sec:whittle}
+%% ============================================================
+
+\subsection{Overview}
+
+The Whittle index policy, introduced by Whittle (1988), provides a tractable heuristic for restless bandits by decomposing the intractable $N_a$-arm problem into $N_a$ independent single-arm subproblems. Each arm is assigned a scalar index based on its current state, and the planner activates the $L$ arms with the highest indices at each epoch. Under mild conditions, this policy is asymptotically optimal as $N_a \to \infty$ with $L/N_a$ held constant (Weber and Weiss, 1990).
+
+The key idea is a \textbf{Lagrangian relaxation}: replace the hard per-epoch activation constraint $\sum_k a_k^t \leq L$ with a time-averaged version, introducing a multiplier $\lambda$ interpreted as a \emph{subsidy for passivity}---a per-epoch payment the arm receives for not being activated.
+
+\subsection{Single-Arm Subproblem}
+
+Fix an asset $k$ of class $j$ with consequence-of-failure score $\text{CoF}_k$. Given a subsidy $\lambda \geq 0$, the single-arm problem is a standard 5-state, 2-action MDP:
+
+\begin{itemize}
+  \item \textbf{States:} $\mathcal{S} = \{1, 2, 3, 4, 5\}$.
+  \item \textbf{Actions:} $a \in \{0, 1\}$ (passive, active).
+  \item \textbf{Transitions:} $P(s' \mid s, a)$ as defined in Section~\ref{sec:transitions}.
+  \item \textbf{Per-epoch cost under subsidy $\lambda$:}
+  \begin{equation}
+    \tilde{r}(s, a; \lambda) = r_k(s) - \lambda \cdot (1 - a),
+  \end{equation}
+  where $r_k(s)$ is the CoF penalty and $\lambda(1 - a)$ is the subsidy received for choosing passivity. The intervention cost $c_j$ or $C_j$ can also be folded in via a second Lagrange multiplier on the budget (see Section~\ref{sec:budget-lagrangian}).
+\end{itemize}
+
+For each value of $\lambda$, this is a finite-state, finite-action discounted MDP with 5 states and 2 actions, solvable exactly by value iteration or policy iteration in negligible time.
+
+\subsection{Indexability and the Whittle Index}
+
+\begin{definition}[Passive Set]
+For a given subsidy $\lambda$, the \textbf{passive set} $\mathcal{P}(\lambda)$ is the set of states in which the optimal policy for the single-arm subproblem chooses the passive action ($a = 0$).
+\end{definition}
+
+\begin{definition}[Indexability]
+An arm is \textbf{indexable} if $\mathcal{P}(\lambda)$ is monotonically non-decreasing in $\lambda$: as the subsidy for passivity increases, the set of states where passivity is optimal only grows. That is, $\lambda_1 \leq \lambda_2$ implies $\mathcal{P}(\lambda_1) \subseteq \mathcal{P}(\lambda_2)$.
+\end{definition}
+
+\begin{definition}[Whittle Index]
+If the arm is indexable, the \textbf{Whittle index} of state $s$ is the critical subsidy at which the planner becomes indifferent between acting and waiting:
+\begin{equation}
+  W_k(s) = \inf\!\big\{\lambda \geq 0 : s \in \mathcal{P}(\lambda)\big\}.
+\end{equation}
+\end{definition}
+
+Intuitively, $W_k(s)$ measures the \emph{urgency} of intervening on asset $k$ when it is in state $s$. A high Whittle index means the asset requires a large passivity subsidy before the planner would be willing to leave it alone---i.e., intervention is highly valuable.
+
+\subsection{Computing the Whittle Index}
+
+For each asset $k$ (or, if assets within a class share the same CoF score, for each unique $(j, \text{CoF})$ combination), the Whittle index for each state is computed as follows:
+
+\begin{enumerate}
+  \item \textbf{Verify indexability.} Solve the single-arm MDP for a grid of $\lambda$ values from $0$ to a sufficiently large upper bound. At each $\lambda$, record which states are in the passive set $\mathcal{P}(\lambda)$. Confirm that $\mathcal{P}(\lambda)$ grows monotonically. For this model, indexability is expected because: (a) the passive transitions are monotonically deteriorating (higher states have worse outcomes), (b) the active transition is a full reset, and (c) the penalty is non-decreasing in state. These structural properties typically guarantee indexability in maintenance models.
+
+  \item \textbf{Binary search for critical $\lambda$.} For each state $s \in \{1, 2, 3, 4, 5\}$, perform a binary search on $\lambda$ to find the value at which the optimal action in state $s$ switches from active to passive. This is the Whittle index $W_k(s)$.
+
+  \item \textbf{Store the index function.} The result is a lookup table $W_k : \mathcal{S} \to \mathbb{R}_{\geq 0}$ for each asset $k$. Since the Whittle index depends only on the asset's class $j$ and its CoF score (through the penalty function $r_k$), assets with the same $(j, \text{CoF}_k)$ share the same index function. This reduces the number of distinct index computations to at most $N_c \times 10$.
+\end{enumerate}
+
+\subsection{The Whittle Index Policy}
+
+At each decision epoch $t$:
+
+\begin{enumerate}
+  \item \textbf{Observe} the current state $s_k^t$ of every asset $k$.
+  \item \textbf{Look up} the Whittle index $W_k(s_k^t)$ for each asset.
+  \item \textbf{Rank} all $N_a$ assets by their Whittle index in descending order.
+  \item \textbf{Activate} the top $L$ assets (rehabilitate those in states 1--4; replace those in state 5).
+\end{enumerate}
+
+This policy is myopically optimal in the following sense: it activates the $L$ assets for which intervention is most valuable (as measured by the index), without needing to solve the exponentially large joint problem.
+
+\subsection{Incorporating the Budget Constraint via Lagrangian}
+\label{sec:budget-lagrangian}
+
+The soft budget constraint introduces a second dimension beyond the activation limit. There are two practical approaches:
+
+\subsubsection{Approach A: Cost-Adjusted Index}
+
+Modify the Whittle index to account for intervention cost by ranking assets not by $W_k(s_k)$ alone, but by a cost-effectiveness ratio:
+\begin{equation}
+  I_k(s_k) = \frac{W_k(s_k)}{\text{cost}(k, s_k)},
+\end{equation}
+where $\text{cost}(k, s_k) = c_{j(k)}$ for $s_k \in \{1,2,3,4\}$ and $\text{cost}(k, s_k) = C_{j(k)}$ for $s_k = 5$. This is a knapsack-style heuristic: it prioritizes assets that deliver the most urgency reduction per dollar.
+
+At each epoch, the planner ranks by $I_k$ descending and activates assets greedily until either $L$ assets are activated or the remaining annual budget would be exceeded (or the overspend penalty becomes too large).
+
+\subsubsection{Approach B: Two-Multiplier Lagrangian}
+
+Introduce a second Lagrange multiplier $\nu \geq 0$ on intervention cost. The subsidized single-arm cost becomes:
+\begin{equation}
+  \tilde{r}(s, a; \lambda, \nu) = r_k(s) - \lambda(1 - a) + \nu \cdot \text{cost}(k, s) \cdot a.
+\end{equation}
+Here $\lambda$ prices the activation constraint and $\nu$ prices the budget constraint. The Whittle index is now computed in the two-dimensional $(\lambda, \nu)$ space. In practice, $\nu$ can be tuned by a simple outer loop: increase $\nu$ when annual spending exceeds $B$, decrease it when spending is well under budget. This is analogous to a dual ascent on the budget constraint.
+
+\subsubsection{Recommended Approach}
+
+For an initial implementation, Approach~A (cost-adjusted index) is simpler and sufficient. If the budget constraint proves to be frequently binding and the cost-adjusted heuristic yields poor budget utilization, Approach~B provides a more principled solution at the cost of additional tuning.
+
+\subsection{Asymptotic Optimality}
+
+Weber and Weiss (1990) proved that the Whittle index policy is \textbf{asymptotically optimal} as the number of arms $N_a \to \infty$ with $L/N_a$ held constant, provided:
+\begin{enumerate}
+  \item Each arm is indexable.
+  \item A global stability condition holds (the fluid limit of the system under the Whittle policy has a unique equilibrium).
+\end{enumerate}
+In practice, the Whittle index policy performs well even for moderate $N_a$ and is widely used in maintenance scheduling, healthcare interventions, and wireless channel allocation.
+
+\subsection{Computational Complexity}
+
+\begin{itemize}
+  \item \textbf{Offline (precomputation):} For each of the at most $N_c \times 10$ unique asset types, solve $O(\log(1/\varepsilon))$ single-arm MDPs (one per binary search step per state, where $\varepsilon$ is the desired index precision). Each MDP has 5 states and 2 actions, so each solve is $O(1)$. Total offline cost: $O(N_c \times 10 \times 5 \times \log(1/\varepsilon))$---negligible.
+  \item \textbf{Online (per epoch):} Look up $N_a$ indices and sort. Cost: $O(N_a \log N_a)$ per week.
+  \item \textbf{Storage:} One index table per unique $(j, \text{CoF})$ combination: at most $N_c \times 10 \times 5$ floating-point numbers.
+\end{itemize}
+
+This is dramatically cheaper than any approach that operates on the joint state space.
+
+%% ============================================================
+\section{Discussion}
+\label{sec:discussion}
+%% ============================================================
+
+\subsection{Why Restless Bandit and Not a Standard MDP}
+
+A na\"ive approach would model the entire fleet as a single MDP with state space $\{1,\dots,5\}^{N_a}$ and action space $\binom{N_a}{L}$ actions per epoch. For $N_a = 1{,}000$ assets and $L = 10$, this is a state space of $5^{1000}$ and an action space of $\binom{1000}{10} \approx 2.6 \times 10^{23}$. Exact solution is impossible. The restless bandit decomposition via Whittle indices reduces this to $N_a$ independent 5-state MDPs, each trivially solvable.
+
+\subsection{Why Not a Classical (Rested) Bandit}
+
+In a classical multi-armed bandit, unplayed arms are frozen. Infrastructure assets degrade whether or not they are serviced. This restless property is the defining feature of the problem and precludes the use of the Gittins index, which is optimal only for rested bandits.
+
+\subsection{Role of Consequence of Failure}
+
+The CoF score $\text{CoF}_k$ enters the model through the per-arm penalty $r_k(s_k)$, which directly influences the Whittle index. Assets with high CoF scores will have higher Whittle indices in deteriorated states, causing them to be prioritized for rehabilitation. This is the mechanism by which community-impact considerations enter the optimization without needing to convert them to monetary units.
+
+\subsection{Limitations}
+
+\begin{itemize}
+  \item \textbf{Independence assumption.} The restless bandit model assumes arms are independent. Correlated failures (e.g., a water main break causing cascading damage to nearby assets) are not captured.
+  \item \textbf{Indexability.} While the structural properties of this model (monotone deterioration, full-reset rehabilitation) strongly suggest indexability, it must be verified numerically for each asset class.
+  \item \textbf{Weibull calibration.} The model's predictive quality depends on accurate Weibull parameters $(\beta_j, L_{50,j})$ per class. Misspecified parameters will lead to miscalibrated transition probabilities.
+  \item \textbf{Single action type.} The model assumes rehabilitation is a binary choice (full reset or do nothing). Partial repairs, inspection-only actions, or multi-stage interventions would require expanding the action space.
+\end{itemize}
+
+%% ============================================================
+\section{Parameter Summary}
+\label{sec:parameters}
+%% ============================================================
+
+\begin{center}
+\begin{tabular}{lll}
+  \toprule
+  \textbf{Symbol} & \textbf{Description} & \textbf{Source} \\
+  \midrule
+  $N_a$ & Total number of assets & Data \\
+  $N_c$ & Number of asset classes & Data \\
+  $L_{50,j}$ & Median life of class $j$ (years) & Engineering / data \\
+  $\beta_j$ & Weibull shape parameter for class $j$ & Calibrated or assumed \\
+  $\eta_j$ & Weibull scale, $= L_{50,j}/(\ln 2)^{1/\beta_j}$ & Derived \\
+  $c_j$ & Rehabilitation cost for class $j$ & Data \\
+  $C_j$ & Replacement cost for class $j$ ($> c_j$) & Data \\
+  $\text{CoF}_k$ & Consequence-of-failure score for asset $k$ $\in \{1,\dots,10\}$ & Assessment \\
+  $L$ & Max interventions per week & Operational \\
+  $B$ & Annual budget (soft constraint) & Financial \\
+  $\mu$ & Budget overspend penalty multiplier & Tuned \\
+  $\gamma$ & Weekly discount factor, $= (1 + r_{\text{ann}})^{-1/52}$ & Financial \\
+  $r_{\text{ann}}$ & Annual discount rate (e.g., 10yr Treasury) & Market \\
+  $\phi_{\text{crit}}$ & Penalty weight for Critical state & Policy choice \\
+  $\phi_{\text{fail}}$ & Penalty weight for Failed state & Policy choice \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\end{document}

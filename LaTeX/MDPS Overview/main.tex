@@ -21,7 +21,7 @@
   showstringspaces=false,
   literate={_}{\_}1
 }
-\usetikzlibrary{automata, positioning, arrows.meta}
+\usetikzlibrary{automata, positioning, arrows.meta, calc, shapes.geometric}
 
 \geometry{margin=1in}
 
@@ -604,6 +604,58 @@ Rewards:
 \end{tabular}
 \end{center}
 
+The structure of the Tiger Problem is shown in Figure~\ref{fig:tiger}.
+
+\begin{figure}[ht]
+  \centering
+  \begin{tikzpicture}[->, >=Stealth, shorten >=1pt, auto,
+                      thick,
+                      state/.style={draw, circle, fill=gray!10, minimum size=1cm},
+                      action/.style={draw, dotted, rectangle, rounded corners=3pt,
+                                     minimum size=0.7cm, inner sep=2pt, fill=white},
+                      obs/.style={draw, dashed, diamond, inner sep=1pt, fill=yellow!10,
+                                  minimum size=0.6cm}]
+
+    % States
+    \node[state] (TL) {TL};
+    \node[state] (TR) [right=6cm of TL] {TR};
+
+    % Listen action node (centered)
+    \node[action] (listen) [below=2cm of $(TL)!0.5!(TR)$] {listen};
+
+    % Observation nodes
+    \node[obs] (HL) [below left=1.5cm and 0.8cm of listen] {\small HL};
+    \node[obs] (HR) [below right=1.5cm and 0.8cm of listen] {\small HR};
+
+    % Open actions
+    \node[action] (OL) [above left=0.5cm and 2cm of TL] {open-L};
+    \node[action] (OR) [above right=0.5cm and 2cm of TR] {open-R};
+
+    % Edges: states to listen
+    \path (TL) edge (listen)
+          (TR) edge (listen);
+
+    % Edges: listen to observations
+    \path (listen) edge node[left] {$0.85$} (HL)
+          (listen) edge node[right] {$0.15$} (HR);
+    \node[above left=0.05cm and 0.3cm of HR, font=\scriptsize\itshape, text=gray] {(if TL)};
+
+    % Open-left outcomes
+    \path (OL) edge [bend right=10] node[left, font=\small\itshape] {$-100$} (TL)
+          (OL) edge [bend left=30] node[above, font=\small\itshape] {$+10$} (TR);
+
+    % Open-right outcomes
+    \path (OR) edge [bend right=30] node[above, font=\small\itshape] {$+10$} (TL)
+          (OR) edge [bend left=10] node[right, font=\small\itshape] {$-100$} (TR);
+
+    % Listen reward
+    \node[below=0.1cm of listen, font=\small\itshape] {$r = -1$};
+
+  \end{tikzpicture}
+  \caption{The Tiger Problem. States TL (tiger left) and TR (tiger right) are hidden. The listen action yields a noisy observation (dashed diamonds): hearing HL with probability $0.85$ when the tiger is left. Opening a door yields $+10$ (treasure) or $-100$ (tiger) and resets the problem.}
+  \label{fig:tiger}
+\end{figure}
+
 Starting from the uniform belief $b(\text{TL}) = 0.5$, the agent listens and hears the tiger on the left. Applying (\ref{eq:belief-update}):
 \begin{equation}
   b'(\text{TL}) = \frac{0.85 \times 0.5}{0.85 \times 0.5 + 0.15 \times 0.5} = 0.85.
@@ -688,7 +740,52 @@ An agent faces $K$ arms. Each arm $i \in \{1, \dots, K\}$ generates i.i.d.\ rewa
 \begin{equation}
   R_T = T \mu^* - \sum_{t=1}^{T} \mathbb{E}[X_{I_t, t}] = \sum_{i:\, \mu_i < \mu^*} \Delta_i \cdot \mathbb{E}[T_i(T)],
 \end{equation}
-where $\mu^* = \max_i \mu_i$ is the mean of the best arm, $\Delta_i = \mu^* - \mu_i$ is the \textbf{gap} (suboptimality) of arm~$i$, and $T_i(T)$ is the number of times arm~$i$ is pulled in $T$ rounds. Regret measures how much reward is lost by not always pulling the best arm.
+where $\mu^* = \max_i \mu_i$ is the mean of the best arm, $\Delta_i = \mu^* - \mu_i$ is the \textbf{gap} (suboptimality) of arm~$i$, and $T_i(T)$ is the number of times arm~$i$ is pulled in $T$ rounds. Regret measures how much reward is lost by not always pulling the best arm. Figure~\ref{fig:mab} illustrates the structure.
+
+\begin{figure}[ht]
+  \centering
+  \begin{tikzpicture}[>=Stealth, thick,
+                      arm/.style={draw, rectangle, rounded corners=5pt, minimum width=1.2cm,
+                                  minimum height=2.2cm, fill=gray!10, font=\small},
+                      reward/.style={draw, circle, fill=yellow!15, minimum size=0.7cm,
+                                     font=\small}]
+
+    % Agent
+    \node[draw, ellipse, fill=blue!10, minimum width=2cm, minimum height=1cm,
+          font=\small\bfseries] (agent) at (0, 0) {Agent};
+
+    % Arms
+    \node[arm] (a1) at (-4, -3.5) {Arm 1};
+    \node[arm] (a2) at (-1.3, -3.5) {Arm 2};
+    \node[arm] (a3) at (1.3, -3.5) {Arm 3};
+    \node[font=\Large] at (3, -3.5) {$\cdots$};
+    \node[arm] (aK) at (4.5, -3.5) {Arm $K$};
+
+    % Unknown means
+    \node[below=0.1cm of a1, font=\scriptsize\itshape] {$\mu_1 = {?}$};
+    \node[below=0.1cm of a2, font=\scriptsize\itshape] {$\mu_2 = {?}$};
+    \node[below=0.1cm of a3, font=\scriptsize\itshape] {$\mu_3 = {?}$};
+    \node[below=0.1cm of aK, font=\scriptsize\itshape] {$\mu_K = {?}$};
+
+    % Pull arrows (agent to arms)
+    \draw[->, dashed] (agent) -- (a1) node[midway, left, font=\scriptsize] {pull};
+    \draw[->, dashed] (agent) -- (a2);
+    \draw[->, dashed] (agent) -- (a3);
+    \draw[->, dashed] (agent) -- (aK);
+
+    % Reward arrow (one arm back to agent, highlighted)
+    \draw[->, thick, densely dotted] (a2.north) to[bend left=20]
+          node[midway, right, font=\scriptsize] {$X_{I_t,t}$} (agent.south west);
+
+    % Selection indicator
+    \draw[thick, red!70!black] ([xshift=-0.3cm, yshift=-0.1cm]a2.north west)
+          rectangle ([xshift=0.3cm, yshift=0.1cm]a2.north east);
+    \node[above=0.3cm of a2, font=\scriptsize, red!70!black] {$I_t = 2$};
+
+  \end{tikzpicture}
+  \caption{The multi-armed bandit. An agent selects one of $K$ arms at each round. The chosen arm (highlighted) returns a stochastic reward $X_{I_t,t}$; the true means $\mu_i$ are unknown and must be learned through interaction.}
+  \label{fig:mab}
+\end{figure}
 
 \subsection{Strategies}
 
@@ -744,7 +841,48 @@ UCB1 achieves a finite-time upper bound of
 \begin{equation}
   \mathbb{E}[R_T] \leq \sum_{i:\, \mu_i < \mu^*} \frac{8 \ln T}{\Delta_i} + \left(1 + \frac{\pi^2}{3}\right) \sum_i \Delta_i,
 \end{equation}
-which is $O(K \ln T)$---logarithmic in $T$ and matching the Lai--Robbins lower bound up to constant factors for bounded rewards. Thompson Sampling also achieves asymptotically optimal regret under standard regularity conditions on the prior \cite{auer2002}.
+which is $O(K \ln T)$---logarithmic in $T$ and matching the Lai--Robbins lower bound up to constant factors for bounded rewards. Thompson Sampling also achieves asymptotically optimal regret under standard regularity conditions on the prior \cite{auer2002}. Figure~\ref{fig:regret} illustrates the qualitative separation between these growth rates.
+
+\begin{figure}[ht]
+  \centering
+  \begin{tikzpicture}[>=Stealth, thick, scale=0.9]
+    % Axes
+    \draw[->] (0,0) -- (10.5,0) node[right] {$T$};
+    \draw[->] (0,0) -- (0,6.5) node[above] {$\mathbb{E}[R_T]$};
+
+    % Linear regret: epsilon-greedy (fixed)
+    \draw[thick, red!70!black, domain=0:10, samples=50]
+      plot (\x, {0.5*\x}) node[right, font=\small] {$O(T)$};
+    \node[red!70!black, font=\scriptsize, right] at (10, 5.5) {fixed $\varepsilon$-greedy};
+
+    % Sublinear regret: decaying epsilon-greedy O(T^{2/3})
+    \draw[thick, orange, domain=0.1:10, samples=80]
+      plot (\x, {0.8*\x^(2/3)}) node[right, font=\small] {};
+    \node[orange, font=\scriptsize, right] at (10, 3.7) {$O(T^{2/3})$};
+    \node[orange, font=\scriptsize, right] at (10, 3.2) {decaying $\varepsilon$};
+
+    % Logarithmic regret: UCB1/Thompson/KL-UCB
+    \draw[thick, blue!70!black, domain=0.5:10, samples=80]
+      plot (\x, {1.2*ln(\x)/ln(2)}) node[right, font=\small] {};
+    \node[blue!70!black, font=\scriptsize, right] at (10, 2.1) {$O(\ln T)$};
+    \node[blue!70!black, font=\scriptsize, right] at (10, 1.6) {UCB1 / TS / KL-UCB};
+
+    % Sqrt regret: EXP3 (adversarial)
+    \draw[thick, green!50!black, dashed, domain=0.1:10, samples=80]
+      plot (\x, {1.0*sqrt(\x)}) node[right, font=\small] {};
+    \node[green!50!black, font=\scriptsize, right] at (10, 2.8) {$O(\!\sqrt{T})$};
+    \node[green!50!black, font=\scriptsize, right] at (10, 2.35) {EXP3 (adversarial)};
+
+    % Lai-Robbins lower bound
+    \draw[thick, black, densely dotted, domain=0.5:10, samples=80]
+      plot (\x, {0.9*ln(\x)/ln(2)});
+    \node[black, font=\scriptsize, right] at (7.2, 0.6) {Lai--Robbins};
+    \node[black, font=\scriptsize, right] at (7.2, 0.15) {lower bound};
+
+  \end{tikzpicture}
+  \caption{Qualitative regret growth rates for bandit strategies (not to scale). The Lai--Robbins lower bound (dotted) shows that $O(\ln T)$ is the best achievable rate for stochastic bandits. Fixed $\varepsilon$-greedy incurs linear regret; decaying $\varepsilon$ achieves $O(T^{2/3})$; UCB1, Thompson Sampling, and KL-UCB achieve the optimal $O(\ln T)$ rate. EXP3 achieves $O(\sqrt{T})$ in the harder adversarial setting.}
+  \label{fig:regret}
+\end{figure}
 
 \subsection{Examples}
 
@@ -939,7 +1077,46 @@ Consider $K = 3$ identical machines and $M = 1$ repairman. Each machine has stat
   \mathbf{P}^{(0)} = \begin{pmatrix} 0.9 & 0.1 \\ 0.2 & 0.8 \end{pmatrix}, \qquad
   \mathbf{P}^{(1)} = \begin{pmatrix} 0.95 & 0.05 \\ 0.7 & 0.3 \end{pmatrix},
 \end{equation}
-where rows correspond to the current state (G, B) and columns to the next state. Under passive operation, a Good machine degrades with probability $0.1$ per period; a Bad machine self-repairs with probability $0.2$. Active maintenance (the repairman) reduces degradation and greatly improves repair: a Bad machine returns to Good with probability $0.7$ instead of $0.2$.
+where rows correspond to the current state (G, B) and columns to the next state. Under passive operation, a Good machine degrades with probability $0.1$ per period; a Bad machine self-repairs with probability $0.2$. Active maintenance (the repairman) reduces degradation and greatly improves repair: a Bad machine returns to Good with probability $0.7$ instead of $0.2$. Figure~\ref{fig:restless-machine} shows these transitions.
+
+\begin{figure}[ht]
+  \centering
+  \begin{tikzpicture}[->, >=Stealth, shorten >=1pt, auto, thick,
+                      every state/.style={fill=gray!10, minimum size=1.2cm}]
+
+    % --- Passive (left) ---
+    \node[font=\bfseries] at (2, 3) {Passive ($a = 0$)};
+    \node[state] (G0) at (0, 0) {G};
+    \node[state] (B0) at (4, 0) {B};
+
+    \path (G0) edge [loop above] node {$0.9$} (G0)
+          (G0) edge [bend left=20] node[above] {$0.1$} (B0)
+          (B0) edge [bend left=20] node[below] {$0.2$} (G0)
+          (B0) edge [loop above] node {$0.8$} (B0);
+
+    \node[below=0.3cm of G0, font=\small\itshape] {$r = 1$};
+    \node[below=0.3cm of B0, font=\small\itshape] {$r = 0$};
+
+    % --- Active (right) ---
+    \node[font=\bfseries] at (9.5, 3) {Active ($a = 1$)};
+    \node[state] (G1) at (7.5, 0) {G};
+    \node[state] (B1) at (11.5, 0) {B};
+
+    \path (G1) edge [loop above] node {$0.95$} (G1)
+          (G1) edge [bend left=20] node[above] {$0.05$} (B1)
+          (B1) edge [bend left=20] node[below] {$0.7$} (G1)
+          (B1) edge [loop above] node {$0.3$} (B1);
+
+    \node[below=0.3cm of G1, font=\small\itshape] {$r = 1$};
+    \node[below=0.3cm of B1, font=\small\itshape] {$r = 0$};
+
+    % Separator
+    \draw[dashed, gray] (5.75, -1.5) -- (5.75, 3.5);
+
+  \end{tikzpicture}
+  \caption{Single-arm transitions for the machine maintenance restless bandit. Left: passive (unattended) transitions. Right: active (repairman assigned) transitions. The key difference is in the Bad$\to$Good probability ($0.2$ vs.\ $0.7$). Unlike classical bandits, the passive transitions are \emph{not} frozen---the machine degrades whether or not the repairman is present.}
+  \label{fig:restless-machine}
+\end{figure}
 
 The discount factor is $\gamma = 0.9$. Computing the Whittle indices by binary search on $\lambda$ yields:
 \begin{equation}
