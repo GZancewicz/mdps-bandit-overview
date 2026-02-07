@@ -209,6 +209,12 @@ For a single asset $k$ of class $j$, the MDP components are:
   \item \textbf{Discount:} $\gamma = (1 + r_{\text{ann}})^{-1/52}$.
 \end{itemize}
 
+\begin{remark}[Stationarity]
+In the continuous-age formulation, the failure probability $p_{\text{fail},j}(\tau)$ depends on the asset's effective age $\tau$, which changes every epoch. This means the transition probabilities are \emph{not} time-homogeneous when viewed as a function of calendar time---an asset's failure risk at epoch $t$ depends on how long it has been since its last rehabilitation.
+
+However, once the effective age is discretized into bins, the age becomes part of the state: state $i$ encodes both the operational status (operating) and the age range. The transition probabilities $P(s' \mid i, a)$ then depend only on the current state $i$ and action $a$, not on calendar time $t$. The discretized MDP is therefore \textbf{stationary} (time-homogeneous). This is the standard technique for converting a process with time-varying dynamics into a stationary MDP: expand the state space to include the time-varying quantity as a state variable. Stationarity is required for the Whittle index theory (Section~\ref{sec:whittle}) to apply, since the index of a state must be a fixed quantity independent of the decision epoch.
+\end{remark}
+
 The decision epoch is one week ($\Delta = 1/52$ years). Figure~\ref{fig:mdp-diagram} illustrates the decision structure: from each state, the agent chooses an action, and the action--state pair determines a probability distribution over next states.
 
 \begin{figure}[ht]
