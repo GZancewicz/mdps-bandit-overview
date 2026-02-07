@@ -40,7 +40,7 @@
 \setcounter{footnote}{0}
 
 \begin{abstract}
-This paper provides a self-contained overview of six core model classes in Markov-based sequential decision-making: Markov processes, Markov decision processes (MDPs), partially observable MDPs (POMDPs), multi-armed bandits, contextual bandits, and restless bandits. The models are arranged in a progression of increasing generality, beginning with passive stochastic dynamics and culminating in problems where multiple evolving subsystems must be managed under combinatorial constraints. For each model class we present a formal definition, the principal theoretical results---including the Bellman equation, Bayesian belief updates, regret bounds, and the Whittle index---and one or more fully worked numerical examples with accompanying Python code. Bandit strategies covered include $\varepsilon$-greedy, UCB1, Thompson Sampling, the Gittins index, successive elimination, KL-UCB, EXP3, LinUCB, and EXP4. We also briefly survey hidden Markov models, Markov games, constrained MDPs, semi-Markov decision processes, and model-free reinforcement learning. A glossary of all technical terms is provided. The paper is intended as an accessible yet rigorous entry point for researchers and practitioners new to the field.
+This paper provides a self-contained overview of five core model classes in Markov-based sequential decision-making: Markov processes, Markov decision processes (MDPs), partially observable MDPs (POMDPs), multi-armed bandits, and restless bandits. The models are arranged in a progression of increasing generality, beginning with passive stochastic dynamics and culminating in problems where multiple evolving subsystems must be managed under combinatorial constraints. For each model class we present a formal definition, the principal theoretical results---including the Bellman equation, Bayesian belief updates, regret bounds, and the Whittle index---and one or more fully worked numerical examples with accompanying Python code. Bandit strategies covered include $\varepsilon$-greedy, UCB1, Thompson Sampling, the Gittins index, successive elimination, KL-UCB, and EXP3. We also briefly survey hidden Markov models, contextual bandits, Markov games, constrained MDPs, semi-Markov decision processes, and model-free reinforcement learning. A glossary of all technical terms is provided. The paper is intended as an accessible yet rigorous entry point for researchers and practitioners new to the field.
 \end{abstract}
 
 \newpage
@@ -52,7 +52,7 @@ This paper provides a self-contained overview of six core model classes in Marko
 
 Many problems in engineering, operations research, economics, and artificial intelligence share a common structure: an agent must make a sequence of decisions under uncertainty, where each decision influences future states of the world and the rewards that follow. The mathematical framework for such problems rests on the theory of Markov processes and their controlled extensions, a body of work spanning over a century---from Markov's original study of dependent random variables \cite{markov1906} through Bellman's dynamic programming \cite{bellman1957} to modern bandit algorithms deployed in clinical trials, online advertising, and autonomous systems.
 
-This paper provides a self-contained overview of six core model classes arranged in a progression of increasing generality:
+This paper provides a self-contained overview of five core model classes arranged in a progression of increasing generality:
 
 \begin{enumerate}
   \item \textbf{Markov Processes} (Section~\ref{sec:mc}). A system evolves randomly among a finite set of states according to fixed transition probabilities, with no external control. The transition matrix and stationary distribution are the central objects.
@@ -63,12 +63,10 @@ This paper provides a self-contained overview of six core model classes arranged
 
   \item \textbf{Multi-Armed Bandits} (Section~\ref{sec:mab}). The exploration--exploitation tradeoff is isolated in its purest form: a single-state problem where the agent must learn which arm is best by trying them. We cover $\varepsilon$-greedy, UCB1, Thompson Sampling, the Gittins index, successive elimination, KL-UCB, and EXP3, together with the Lai--Robbins regret lower bound.
 
-  \item \textbf{Contextual Bandits} (Section~\ref{sec:cb}). Side information (a context vector) is observed before each arm selection, and reward distributions depend on the context. The agent must learn a mapping from contexts to optimal arms. We cover LinUCB, Thompson Sampling for linear models, and EXP4 for adversarial settings.
-
   \item \textbf{Restless Bandits} (Section~\ref{sec:restless}). The classical bandit assumption that unplayed arms are frozen is removed: every arm evolves at every time step. The Whittle index policy provides a tractable heuristic for this PSPACE-hard problem.
 \end{enumerate}
 
-Section~\ref{sec:beyond} briefly surveys several related model classes---hidden Markov models, Markov games, constrained MDPs, semi-Markov decision processes, and model-free reinforcement learning---that lie beyond the scope of this paper but occupy adjacent regions of the same theoretical landscape.
+Section~\ref{sec:beyond} briefly surveys several related model classes---hidden Markov models, contextual bandits, Markov games, constrained MDPs, semi-Markov decision processes, and model-free reinforcement learning---that lie beyond the scope of this paper but occupy adjacent regions of the same theoretical landscape.
 
 Each section follows a uniform structure: a notation table listing all symbols used in that section, a formal definition, the key theoretical results, one or more worked examples with explicit numerical computation, and a summary containing the key equations and relevant applications. Where appropriate, Python code is provided to verify analytical solutions via value iteration or simulation. The paper concludes with a glossary of all technical terms.
 
@@ -1011,234 +1009,6 @@ Thompson Sampling posterior update (Bernoulli arms):
   \item Network routing and server selection, where traffic must be allocated across paths or servers with unknown performance characteristics.
 \end{itemize}
 
-\section{Contextual Bandit Problems}
-\label{sec:cb}
-
-The \textbf{contextual bandit} problem extends the multi-armed bandit framework of Section~\ref{sec:mab} by incorporating \emph{side information}---a context vector observed before each arm selection. The context may encode user features in a recommender system, patient characteristics in personalized medicine, or the current state of a bidding environment in online advertising. Unlike a full MDP, the context arrives exogenously at each round and does not depend on past actions; the agent observes a context, selects an arm, and receives a reward, but there are no state transitions. Contextual bandits thus occupy a middle ground between the stateless exploration of Section~\ref{sec:mab} and the full sequential planning of Section~\ref{sec:mdp}.
-
-The contextual bandit model was formalized by Langford and Zhang \cite{langford2008}, who introduced the Epoch-Greedy algorithm, and has since become a cornerstone of online learning in applications ranging from news article recommendation to clinical trial design. A particularly influential algorithm is LinUCB \cite{li2010}, which applies the principle of optimism in the face of uncertainty to a linear reward model.
-
-The key algorithmic challenge is the same as in standard bandits---balancing exploration and exploitation---but now the agent must generalize across contexts. A policy that performs well in one context may be suboptimal in another, and the agent must learn a mapping from contexts to arm selections.
-
-\subsection{Notation}
-
-\begin{tabular}{ll}
-  \textbf{Symbol} & \textbf{Description} \\
-  \hline
-  $\mathcal{X} \subseteq \mathbb{R}^d$ & Context space \\
-  $x_t$ & Context vector observed at round $t$ \\
-  $K$ & Number of arms (actions) \\
-  $\boldsymbol{\phi}(x, a)$ & Feature vector for context--arm pair $(x, a)$ \\
-  $d$ & Dimension of feature vectors \\
-  $\boldsymbol{\theta}^*$ & Unknown parameter vector \\
-  $r_t(a)$ & Reward for arm $a$ at round $t$ \\
-  $\pi: \mathcal{X} \to \mathcal{A}$ & Policy mapping contexts to arms \\
-  $R_T$ & Cumulative regret over $T$ rounds \\
-  $\mathbf{V}_t$ & Design matrix (covariance estimate) at round $t$ \\
-  $\hat{\boldsymbol{\theta}}_t$ & Least-squares estimate of $\boldsymbol{\theta}^*$ at round $t$ \\
-  $\alpha$ & Exploration parameter (confidence width) \\
-  $\lambda$ & Regularization parameter \\
-  $N$ & Number of experts (EXP4) \\
-  $w_{i,t}$ & Weight of expert $i$ at round $t$ (EXP4) \\
-\end{tabular}
-
-\subsection{Formal Definition}
-
-The contextual bandit proceeds in rounds $t = 1, 2, \dots, T$. At each round:
-\begin{enumerate}
-  \item Nature reveals a context $x_t \in \mathcal{X}$.
-  \item The agent selects an arm $a_t \in \{1, \dots, K\}$, possibly based on the context and past observations.
-  \item The agent receives reward $r_t(a_t)$ and observes no reward for the other arms.
-\end{enumerate}
-
-In the \textbf{stochastic linear model}, the expected reward for arm~$a$ given context~$x$ is
-\begin{equation}
-  \mathbb{E}[r_t(a) \mid x_t] = \boldsymbol{\phi}(x_t, a)^\top \boldsymbol{\theta}^*,
-\end{equation}
-where $\boldsymbol{\phi}: \mathcal{X} \times \{1, \dots, K\} \to \mathbb{R}^d$ is a known feature map and $\boldsymbol{\theta}^* \in \mathbb{R}^d$ is an unknown parameter vector. The actual reward is often modeled as
-\begin{equation}
-  r_t(a) = \boldsymbol{\phi}(x_t, a)^\top \boldsymbol{\theta}^* + \eta_t,
-\end{equation}
-where $\eta_t$ is zero-mean noise (e.g., sub-Gaussian).
-
-The agent's goal is to minimize \textbf{cumulative regret}, defined as
-\begin{equation}
-  R_T = \sum_{t=1}^{T} \left[ \max_{a \in \{1,\dots,K\}} \boldsymbol{\phi}(x_t, a)^\top \boldsymbol{\theta}^* - \boldsymbol{\phi}(x_t, a_t)^\top \boldsymbol{\theta}^* \right],
-\end{equation}
-the total difference between the reward of the optimal arm in each context and the arm actually chosen. Unlike the standard bandit setting, the optimal arm $a^*(x_t) = \arg\max_a \boldsymbol{\phi}(x_t, a)^\top \boldsymbol{\theta}^*$ may change from round to round depending on the context.
-
-Two common settings for the context arrival process are:
-\begin{itemize}
-  \item \textbf{Stochastic contexts}: $x_1, x_2, \dots$ are drawn i.i.d.\ from some fixed distribution over $\mathcal{X}$.
-  \item \textbf{Adversarial contexts}: $x_1, x_2, \dots$ are chosen by an adversary who may observe the agent's past behavior but not its future randomization.
-\end{itemize}
-
-\subsection{LinUCB: Linear Upper Confidence Bound}
-
-LinUCB \cite{li2010} is the most widely-used contextual bandit algorithm in practice. It extends the optimistic principle behind UCB1 to linear reward models, maintaining uncertainty estimates via ridge regression. Where UCB1 assigns a fixed unknown parameter to each arm, LinUCB models each arm's reward as a linear function of the observed context, enabling generalization across similar contexts.
-
-At each round, LinUCB maintains a ridge-regression estimate of $\boldsymbol{\theta}^*$. Let $\mathbf{V}_t \in \mathbb{R}^{d \times d}$ denote the design matrix and $\mathbf{b}_t \in \mathbb{R}^d$ the cumulative reward-weighted features after $t$ rounds:
-\begin{equation}
-  \mathbf{V}_t = \lambda \mathbf{I} + \sum_{\tau=1}^{t-1} \boldsymbol{\phi}(x_\tau, a_\tau) \boldsymbol{\phi}(x_\tau, a_\tau)^\top, \quad
-  \mathbf{b}_t = \sum_{\tau=1}^{t-1} r_\tau \boldsymbol{\phi}(x_\tau, a_\tau),
-\end{equation}
-where $\lambda > 0$ is a regularization parameter. The ridge estimate is $\hat{\boldsymbol{\theta}}_t = \mathbf{V}_t^{-1} \mathbf{b}_t$.
-
-The upper confidence bound for arm $a$ at round $t$ is
-\begin{equation}
-  \text{UCB}_t(a) = \boldsymbol{\phi}(x_t, a)^\top \hat{\boldsymbol{\theta}}_t + \alpha \sqrt{\boldsymbol{\phi}(x_t, a)^\top \mathbf{V}_t^{-1} \boldsymbol{\phi}(x_t, a)},
-\end{equation}
-where $\alpha > 0$ is an exploration parameter. The first term is the predicted reward; the second is the \emph{confidence width}, equal to the Mahalanobis norm of $\boldsymbol{\phi}(x_t, a)$ under $\mathbf{V}_t^{-1}$. Contexts whose feature vectors lie in under-explored directions receive larger bonuses.
-
-The agent selects $a_t = \arg\max_{a} \text{UCB}_t(a)$, observes reward $r_t$, and updates $\mathbf{V}_{t+1}$ and $\mathbf{b}_{t+1}$.
-
-\textbf{Regret bound.} Under standard assumptions (bounded features, sub-Gaussian noise), LinUCB achieves
-\begin{equation}
-  \mathbb{E}[R_T] = O(d \sqrt{T \log T}).
-\end{equation}
-This bound is optimal up to logarithmic factors for $d$-dimensional linear contextual bandits. The key advantage over non-contextual UCB1 is that regret scales with feature dimension $d$ rather than arm count $K$---when $K \gg d$, this is a dramatic improvement.
-
-\subsection{Thompson Sampling for Contextual Bandits}
-
-Thompson Sampling extends naturally from the multi-armed bandit setting of Section~\ref{sec:mab} to the contextual case. Rather than maintaining independent Beta posteriors over each arm's success probability, the agent maintains a posterior distribution over $\boldsymbol{\theta}$ and samples from it at each round.
-
-For linear models, assume:
-\begin{equation}
-  r_t = \boldsymbol{\phi}(x_t, a_t)^\top \boldsymbol{\theta} + \eta_t, \quad \eta_t \sim \mathcal{N}(0, \sigma^2), \quad \boldsymbol{\theta} \sim \mathcal{N}(\mathbf{0}, \sigma_\theta^2 \mathbf{I}).
-\end{equation}
-The posterior over $\boldsymbol{\theta}$ remains Gaussian by conjugacy:
-\begin{equation}
-  \boldsymbol{\theta} \mid \text{data} \sim \mathcal{N}(\boldsymbol{\mu}_t, \boldsymbol{\Sigma}_t),
-\end{equation}
-where
-\begin{align}
-  \boldsymbol{\Sigma}_t &= \left( \sigma^{-2} \sum_{s=1}^{t} \boldsymbol{\phi}(x_s, a_s) \boldsymbol{\phi}(x_s, a_s)^\top + \sigma_\theta^{-2} \mathbf{I} \right)^{-1}, \\
-  \boldsymbol{\mu}_t &= \sigma^{-2} \boldsymbol{\Sigma}_t \sum_{s=1}^{t} r_s \boldsymbol{\phi}(x_s, a_s).
-\end{align}
-
-At each round: (1) observe $x_t$, (2) sample $\tilde{\boldsymbol{\theta}} \sim \mathcal{N}(\boldsymbol{\mu}_{t-1}, \boldsymbol{\Sigma}_{t-1})$, (3) select $a_t = \arg\max_a \boldsymbol{\phi}(x_t, a)^\top \tilde{\boldsymbol{\theta}}$, and (4) update the posterior.
-
-\textbf{Regret bound.} Thompson Sampling for linear contextual bandits achieves $\mathbb{E}[R_T] = O(d \sqrt{T \log T})$ \cite{agrawal2013}, matching LinUCB. It often performs better empirically because exploration is proportional to uncertainty in a natural Bayesian sense, and it requires no tuning of a confidence parameter $\alpha$.
-
-\subsection{EXP4: Adversarial Contextual Bandits}
-
-The stochastic setting assumes rewards are drawn from fixed distributions. In adversarial settings, an adversary may choose rewards after observing the algorithm's behavior. \textbf{EXP4} \cite{auer2002nonstochastic} addresses this by competing with a finite set of $N$ \emph{experts} (policies) $\pi_1, \dots, \pi_N$, where each $\pi_i : \mathcal{X} \to \mathcal{A}$.
-
-EXP4 maintains weights $w_{i,t}$ over experts. At each round:
-\begin{enumerate}
-  \item Compute mixing probabilities: $p_t(a) = \sum_i w_{i,t} \mathbb{I}[\pi_i(x_t) = a] / \sum_j w_{j,t}$.
-  \item Sample $a_t \sim p_t(\cdot)$ and observe $r_t(a_t)$.
-  \item Construct importance-weighted estimates: $\hat{r}_t(a) = r_t(a)/p_t(a)$ if $a = a_t$, else $0$.
-  \item Update weights: $w_{i,t+1} = w_{i,t} \exp(\eta \hat{r}_t(\pi_i(x_t)))$.
-\end{enumerate}
-
-\textbf{Regret bound.} EXP4 achieves $\mathbb{E}[R_T] = O(\sqrt{TK \ln N})$ against the best expert in hindsight, with no distributional assumptions. This is the price of adversarial robustness: the bound depends on $\sqrt{K}$ rather than $\sqrt{d}$.
-
-\subsection{Example: News Article Recommendation}
-
-Consider a news website recommending articles to users. There are two user types (contexts): ``tech-interested'' and ``sports-interested,'' and three articles (arms): Tech, Sports, and General. We use a 2-dimensional feature representation for tractable hand calculation.
-
-\textbf{Feature vectors:}
-\begin{center}
-\begin{tabular}{lcc}
-  Context--Arm Pair & $\boldsymbol{\phi}$ & Expected Reward \\
-  \hline
-  Tech user, Tech article & $[1, 0]$ & $0.8$ \\
-  Tech user, Sports article & $[0, 0.5]$ & $0.2$ \\
-  Tech user, General article & $[0.5, 0.5]$ & $0.6$ \\
-  Sports user, Tech article & $[0, 0.5]$ & $0.2$ \\
-  Sports user, Sports article & $[1, 0]$ & $0.8$ \\
-  Sports user, General article & $[0.5, 0.5]$ & $0.6$ \\
-\end{tabular}
-\end{center}
-
-The true parameter is $\boldsymbol{\theta}^* = [0.8, 0.4]$, so expected rewards are $\boldsymbol{\phi}^\top \boldsymbol{\theta}^*$. Tech users prefer Tech articles (0.8 vs 0.6 vs 0.2); Sports users prefer Sports articles (0.8 vs 0.6 vs 0.2).
-
-\textbf{LinUCB trace} with $\alpha = 1$, $\lambda = 1$:
-
-\begin{center}
-\begin{tabular}{ccccccc}
-  $t$ & Context & $\hat{\boldsymbol{\theta}}_t$ & UCB(Tech) & UCB(Sports) & UCB(Gen) & Choice \\
-  \hline
-  1 & Sports & $[0, 0]$ & 1.41 & 1.41 & 1.58 & General \\
-  2 & Tech & $[0.26, 0.26]$ & 1.07 & 0.91 & 1.20 & General \\
-  3 & Sports & $[0.42, 0.42]$ & 0.83 & 0.83 & 1.09 & General \\
-  4 & Tech & $[0.49, 0.49]$ & 1.18 & 0.58 & 1.06 & Tech \\
-  5 & Sports & $[0.60, 0.42]$ & 0.63 & 1.04 & 0.98 & Sports \\
-  6 & Tech & $[0.67, 0.40]$ & 1.21 & 0.49 & 0.93 & Tech \\
-\end{tabular}
-\end{center}
-
-Initially, high uncertainty leads to exploration (General article chosen). As data accumulates, $\hat{\boldsymbol{\theta}}_t$ approaches $[0.8, 0.4]$ and the algorithm learns to match users with their preferred content.
-
-The following Python code verifies this solution:
-
-\begin{lstlisting}[caption={LinUCB for the news recommendation example.}]
-import numpy as np
-
-d, K = 2, 3
-alpha, lambda_reg = 1.0, 1.0
-theta_star = np.array([0.8, 0.4])
-
-def get_features(user, arm):
-    feats = {(0,0): [1,0], (0,1): [0,0.5], (0,2): [0.5,0.5],
-             (1,0): [0,0.5], (1,1): [1,0], (1,2): [0.5,0.5]}
-    return np.array(feats[(user, arm)])
-
-V = lambda_reg * np.eye(d)
-b = np.zeros(d)
-np.random.seed(42)
-
-for t in range(1, 101):
-    user = np.random.randint(0, 2)
-    theta_hat = np.linalg.solve(V, b)
-    ucbs = [get_features(user, a) @ theta_hat +
-            alpha * np.sqrt(get_features(user, a) @
-            np.linalg.solve(V, get_features(user, a))) for a in range(K)]
-    arm = np.argmax(ucbs)
-    phi = get_features(user, arm)
-    r = phi @ theta_star + np.random.normal(0, 0.1)
-    V += np.outer(phi, phi)
-    b += r * phi
-
-print(f"Estimated theta: {np.linalg.solve(V, b)}")  # [0.80, 0.40]
-\end{lstlisting}
-
-\subsection{Summary}
-
-Contextual bandits extend the multi-armed bandit by incorporating side information that changes the optimal arm from round to round. The agent must learn a mapping from contexts to actions, generalizing across similar contexts rather than treating each arm independently. LinUCB and Thompson Sampling achieve $O(d\sqrt{T})$ regret under linear reward models, with regret scaling in feature dimension rather than arm count. EXP4 provides adversarial robustness at the cost of worse dependence on the action space. These algorithms underpin modern recommendation systems, personalized medicine, and online advertising.
-
-\subsubsection{Key Equations}
-
-Expected reward (linear model):
-\begin{equation*}
-  \mathbb{E}[r_t(a) \mid x_t] = \boldsymbol{\phi}(x_t, a)^\top \boldsymbol{\theta}^*.
-\end{equation*}
-
-Cumulative regret:
-\begin{equation*}
-  R_T = \sum_{t=1}^{T} \left[ \max_{a} \boldsymbol{\phi}(x_t, a)^\top \boldsymbol{\theta}^* - \boldsymbol{\phi}(x_t, a_t)^\top \boldsymbol{\theta}^* \right].
-\end{equation*}
-
-LinUCB upper confidence bound:
-\begin{equation*}
-  \text{UCB}_t(a) = \boldsymbol{\phi}(x_t, a)^\top \hat{\boldsymbol{\theta}}_t + \alpha \sqrt{\boldsymbol{\phi}(x_t, a)^\top \mathbf{V}_t^{-1} \boldsymbol{\phi}(x_t, a)}.
-\end{equation*}
-
-LinUCB / Thompson Sampling regret:
-\begin{equation*}
-  \mathbb{E}[R_T] = O(d \sqrt{T \log T}).
-\end{equation*}
-
-\subsubsection{Relevant Applications}
-\begin{itemize}
-  \item News article and content recommendation, where user profile is the context and articles are arms.
-  \item Personalized medicine and adaptive clinical trials, where patient features guide treatment selection.
-  \item Online advertising and ad placement, where user demographics and browsing history inform bid strategies.
-  \item Dynamic pricing, where product features and market conditions determine optimal price points.
-  \item Dialog systems and chatbot response selection conditioned on conversation history.
-\end{itemize}
-
 \section{Restless Bandit Problems}
 \label{sec:restless}
 
@@ -1469,7 +1239,7 @@ Whittle index (critical subsidy):
 \section{Beyond the Scope of This Paper}
 \label{sec:beyond}
 
-The preceding sections trace a single thread through the landscape of Markov models: passive chains (Section~\ref{sec:mc}), controlled chains with full observability (Section~\ref{sec:mdp}), controlled chains with partial observability (Section~\ref{sec:pomdp}), stateless exploration--exploitation (Section~\ref{sec:mab}), exploration with side information (Section~\ref{sec:cb}), and the restless generalization where arms evolve independently (Section~\ref{sec:restless}). This thread is coherent but not exhaustive. Several major model classes occupy adjacent or intersecting regions of the same landscape and are briefly noted here.
+The preceding sections trace a single thread through the landscape of Markov models: passive chains (Section~\ref{sec:mc}), controlled chains with full observability (Section~\ref{sec:mdp}), controlled chains with partial observability (Section~\ref{sec:pomdp}), and the exploration--exploitation specializations that arise when state structure is absent or arms evolve independently (Sections~\ref{sec:mab}--\ref{sec:restless}). This thread is coherent but not exhaustive. Several major model classes occupy adjacent or intersecting regions of the same landscape and are briefly noted here.
 
 \subsection{Hidden Markov Models}
 
@@ -1482,6 +1252,19 @@ A \textbf{hidden Markov model} (HMM) \cite{rabiner1989} is a Markov chain whose 
   \item Financial regime detection, where latent market states (bull, bear, crisis) drive observable returns.
   \item Part-of-speech tagging and natural language processing, where hidden grammatical roles produce observed words.
   \item Activity recognition from sensor data, where unobserved human activities generate accelerometer and gyroscope readings.
+\end{itemize}
+
+\subsection{Contextual Bandits}
+
+The \textbf{contextual bandit} \cite{langford2008} extends the multi-armed bandit of Section~\ref{sec:mab} by providing side information---a \emph{context} vector---before each decision. The reward distribution of each arm depends on the context, so the agent must learn a mapping from contexts to optimal arms rather than a single best arm. Contextual bandits sit between the stateless MAB and the full MDP: they introduce state (the context) but assume no state transitions---contexts arrive exogenously and do not depend on past actions. This model is the dominant formulation in modern recommendation systems, personalized medicine, and online advertising, where user features constitute the context and content or treatment options constitute the arms.
+
+\textbf{Applications:}
+\begin{itemize}
+  \item News article and content recommendation, where user profile is the context and articles are arms.
+  \item Personalized medicine and adaptive clinical trials, where patient features guide treatment selection.
+  \item Online advertising and ad placement, where user demographics and browsing history inform bid strategies.
+  \item Dynamic pricing, where product features and market conditions determine optimal price points.
+  \item Dialog systems and chatbot response selection conditioned on conversation history.
 \end{itemize}
 
 \subsection{Markov Games}
@@ -1539,13 +1322,13 @@ The solution methods in this paper---value iteration, policy evaluation, Bellman
 \section{Conclusion}
 \label{sec:conclusion}
 
-This paper has traced a single coherent thread through the theory of sequential decision-making under uncertainty: from the passive Markov chain (Section~\ref{sec:mc}), where a system evolves according to fixed transition probabilities, to the Markov decision process (Section~\ref{sec:mdp}), where an agent's actions influence both transitions and rewards, to the partially observable MDP (Section~\ref{sec:pomdp}), where the agent must act on incomplete information maintained through Bayesian belief updates. The multi-armed bandit (Section~\ref{sec:mab}) isolates the exploration--exploitation tradeoff in its purest form; the contextual bandit (Section~\ref{sec:cb}) reintroduces structure by conditioning arm rewards on observed side information; and the restless bandit (Section~\ref{sec:restless}) allows arms to evolve whether or not they are played.
+This paper has traced a single coherent thread through the theory of sequential decision-making under uncertainty: from the passive Markov chain (Section~\ref{sec:mc}), where a system evolves according to fixed transition probabilities, to the Markov decision process (Section~\ref{sec:mdp}), where an agent's actions influence both transitions and rewards, to the partially observable MDP (Section~\ref{sec:pomdp}), where the agent must act on incomplete information maintained through Bayesian belief updates. The multi-armed bandit (Section~\ref{sec:mab}) isolates the exploration--exploitation tradeoff in its purest form, and the restless bandit (Section~\ref{sec:restless}) reintroduces state dynamics by allowing arms to evolve whether or not they are played.
 
 Several unifying ideas recur across these models. The \emph{Bellman equation}---the principle that an optimal policy decomposes into an optimal immediate action followed by optimal continuation---appears in Sections~\ref{sec:mdp}, \ref{sec:pomdp}, and (implicitly, via the Gittins index) Section~\ref{sec:mab}. \emph{Sufficient statistics} play a central role: the state in an MDP, the belief in a POMDP, and the posterior in a Bayesian bandit each compress all relevant history into a compact representation. The tension between \emph{tractability and generality} is a recurring theme: each extension in the hierarchy (adding actions, partial observability, or restless dynamics) increases modeling power at the cost of computational complexity, from polynomial-time solvability for MDPs to PSPACE-hardness for POMDPs and restless bandits.
 
-The worked examples throughout the paper---the two-state Markov chain, the binary MDP and asset maintenance problem, the Tiger Problem, the three-armed bandit under four strategies, the news recommendation contextual bandit, and the machine maintenance restless bandit---are intended to make the formal definitions concrete. Each example is accompanied by explicit numerical computation and, where appropriate, Python code for verification. Our hope is that these examples lower the barrier to entry for practitioners encountering these models for the first time.
+The worked examples throughout the paper---the two-state Markov chain, the binary MDP and asset maintenance problem, the Tiger Problem, the three-armed bandit under four strategies, and the machine maintenance restless bandit---are intended to make the formal definitions concrete. Each example is accompanied by explicit numerical computation and, where appropriate, Python code for verification. Our hope is that these examples lower the barrier to entry for practitioners encountering these models for the first time.
 
-Section~\ref{sec:beyond} surveyed several important model classes that lie outside the scope of this paper, including hidden Markov models, Markov games, constrained MDPs, semi-Markov decision processes, and model-free reinforcement learning. Together with the models treated here, they span much of the landscape of Markov-based sequential decision-making. Exploring these extensions---and the connections among them---remains a rich area of both theoretical research and practical application. These models collectively form the mathematical foundation for modern applications ranging from autonomous systems and healthcare decision-making to recommendation engines and game-playing artificial intelligence.
+Section~\ref{sec:beyond} surveyed several important model classes that lie outside the scope of this paper, including hidden Markov models, contextual bandits, Markov games, constrained MDPs, semi-Markov decision processes, and model-free reinforcement learning. Together with the models treated here, they span much of the landscape of Markov-based sequential decision-making. Exploring these extensions---and the connections among them---remains a rich area of both theoretical research and practical application. These models collectively form the mathematical foundation for modern applications ranging from autonomous systems and healthcare decision-making to recommendation engines and game-playing artificial intelligence.
 
 \section*{Glossary}
 
@@ -1563,7 +1346,7 @@ Section~\ref{sec:beyond} surveyed several important model classes that lie outsi
 
 \item[Constrained MDP (CMDP)] An MDP augmented with side constraints on expected cumulative costs. The optimal policy is generally a mixture of deterministic policies. (Section~\ref{sec:beyond})
 
-\item[Contextual bandit] A bandit model in which the agent observes a context (feature vector) before selecting an arm, and the reward distribution depends on the context. The agent must learn a mapping from contexts to optimal arms. Intermediate between the context-free bandit and the full MDP. (Section~\ref{sec:cb})
+\item[Contextual bandit] A bandit model in which the agent observes a context (feature vector) before selecting an arm, and the reward distribution depends on the context. Intermediate between the context-free bandit and the full MDP. (Section~\ref{sec:beyond})
 
 \item[Cumulative regret] The total expected reward lost by not always pulling the best arm: $R_T = \sum_{i:\mu_i < \mu^*} \Delta_i \cdot \mathbb{E}[T_i(T)]$. (Section~\ref{sec:mab})
 
@@ -1590,8 +1373,6 @@ Section~\ref{sec:beyond} surveyed several important model classes that lie outsi
 \item[KL-UCB] A variant of UCB that uses Kullback--Leibler divergence instead of Hoeffding bounds, achieving asymptotically optimal regret with exact constants. (Section~\ref{sec:mab})
 
 \item[Lai--Robbins lower bound] The information-theoretic lower bound on regret: $\liminf_{T \to \infty} \mathbb{E}[R_T] / \ln T \geq \sum_i \Delta_i / \text{KL}(\nu_i, \nu^*)$. Establishes that logarithmic regret growth is the best achievable. (Section~\ref{sec:mab})
-
-\item[LinUCB] Linear Upper Confidence Bound. A contextual bandit algorithm that models expected rewards as linear in context features and uses ridge regression to estimate parameters with confidence bounds. Achieves $O(d\sqrt{T})$ regret where $d$ is the feature dimension. (Section~\ref{sec:cb})
 
 \item[Markov chain] See Markov process. (Section~\ref{sec:mc})
 
@@ -1770,18 +1551,6 @@ Section~\ref{sec:beyond} surveyed several important model classes that lie outsi
   ``The Epoch-Greedy algorithm for contextual multi-armed bandits,''
   in \emph{Advances in Neural Information Processing Systems~20 (NIPS)},
   pp.~817--824, 2008.
-
-\bibitem{li2010}
-  L.~Li, W.~Chu, J.~Langford, and R.~E.~Schapire,
-  ``A contextual-bandit approach to personalized news article recommendation,''
-  in \emph{Proceedings of the 19th International Conference on World Wide Web (WWW)},
-  pp.~661--670, 2010.
-
-\bibitem{agrawal2013}
-  S.~Agrawal and N.~Goyal,
-  ``Thompson Sampling for contextual bandits with linear payoffs,''
-  in \emph{Proceedings of the 30th International Conference on Machine Learning (ICML)},
-  pp.~127--135, 2013.
 
 \bibitem{shapley1953}
   L.~S.~Shapley,
