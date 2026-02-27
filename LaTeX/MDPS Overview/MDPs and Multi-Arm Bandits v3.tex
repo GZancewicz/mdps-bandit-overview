@@ -29,7 +29,7 @@
 \setlength{\parskip}{1em}
 
 \title{Markov Decision Processes and Multi-Armed Bandits: Overview and Worked Examples}
-\author{Gregory Zancewicz\thanks{\url{https://www.linkedin.com/in/zancewicz/}}}
+\author{Gregory Zancewicz\thanks{With assistance from Anthropic Claude Opus 4.5 and OpenAI GPT-5.2 AI agents.}}
 \date{February 3, 2026}
 
 \begin{document}
@@ -57,7 +57,7 @@ This paper provides a self-contained overview of six core model classes arranged
 \begin{enumerate}
   \item \textbf{Markov Processes} (Section~\ref{sec:mc}). A system evolves randomly among a finite set of states according to fixed transition probabilities, with no external control. The transition matrix and stationary distribution are the central objects.
 
-  \item \textbf{Markov Decision Processes} (Section~\ref{sec:mdp}). An agent chooses actions that influence both state transitions and rewards. The Bellman equation characterizes the optimal policy, and solution methods---value iteration, policy iteration, and linear programming---provide constructive algorithms.
+  \item \textbf{Markov Decision Processes} (Section~\ref{sec:mdp}). An agent chooses actions that influence both state transitions and rewards. The Bellman equation characterizes the optimal policy, and value iteration provides a constructive solution method.
 
   \item \textbf{Partially Observable MDPs} (Section~\ref{sec:pomdp}). The agent can no longer observe the state directly and must maintain a belief distribution updated via Bayes' rule. The POMDP reduces to a continuous-state MDP over the belief simplex, at the cost of greatly increased computational complexity.
 
@@ -98,7 +98,7 @@ A \textbf{Markov process} (or Markov chain) is a stochastic process satisfying t
 
 \subsection{Definitions and Notation}
 
-Let $\mathcal{S} = \{s_1, s_2, \dots, s_n\}$ denote a finite set of \textbf{states}. Each state is simply an element of this set; it may represent a concrete condition (e.g., ``sunny'' or ``rainy''), a configuration of a system, or, in some applications, a random variable---but need not be in general. A discrete-time Markov chain is a process that, at each time step $t = 0, 1, 2, \dots$, occupies some state $X_t \in \mathcal{S}$ and transitions to the next state. The defining assumption---the \emph{Markov property}---is that the probability of the next state depends only on the current state, not on how the process arrived there:
+Let $\mathcal{S} = \{s_1, s_2, \dots, s_n\}$ denote a finite set of \textbf{states}. Each state is simply an element of this set; it may represent a concrete condition (e.g., ``sunny'' or ``rainy''), a configuration of a system, or, in some applications, a random variable---but need not in general. A discrete-time Markov chain is a process that, at each time step $t = 0, 1, 2, \dots$, occupies some state $X_t \in \mathcal{S}$ and transitions to a next state. The defining assumption---the \emph{Markov property}---is that the probability of the next state depends only on the current state, not on how the process arrived there:
 \begin{equation}
   P(X_{t+1} = s_j \mid X_t = s_i, X_{t-1}, \dots, X_0) = P(X_{t+1} = s_j \mid X_t = s_i) \triangleq p_{ij}.
 \end{equation}
@@ -221,7 +221,7 @@ A Markov decision process is defined by the tuple $(\mathcal{S}, \mathcal{A}, p,
 
 \subsection{Policies}
 
-A \textbf{policy} $\pi : \mathcal{S} \to \mathcal{A}$ is a rule that specifies which action to take in each state. More generally, a policy may be \emph{stochastic}, specifying a distribution $\pi(a \mid s)$ over actions in each state; however, for finite-state discounted MDPs a deterministic stationary policy always suffices for optimality \cite{puterman1994}. Under a fixed deterministic policy $\pi$, the MDP reduces to an ordinary Markov chain with transition probabilities $p_{ij}(\pi(s_i))$.
+A \textbf{policy} $\pi : \mathcal{S} \to \mathcal{A}$ is a rule that specifies which action to take in each state. Under a fixed policy $\pi$, the MDP reduces to an ordinary Markov chain with transition probabilities $p_{ij}(\pi(s_i))$.
 
 \subsection{The Value Function and Bellman's Equation}
 
@@ -245,16 +245,6 @@ The optimal policy $\pi^*$ is then the one that achieves the maximum in the Bell
 \begin{equation}
   \pi^*(s_i) = \arg\max_{a \in \mathcal{A}} \left[ r(s_i, a) + \gamma \sum_{j=1}^{n} p_{ij}(a)\, V^*(s_j) \right].
 \end{equation}
-
-It is often useful to define the \textbf{action-value function} (or Q-function) $Q^*(s_i, a)$, which gives the value of taking action $a$ in state $s_i$ and then acting optimally:
-\begin{equation}
-  Q^*(s_i, a) = r(s_i, a) + \gamma \sum_{j=1}^{n} p_{ij}(a)\, V^*(s_j).
-\end{equation}
-The Bellman equation is then $V^*(s_i) = \max_a Q^*(s_i, a)$. The Q-function is the central object in model-free algorithms such as Q-learning (Section~\ref{sec:beyond}).
-
-\subsection{Solution Methods}
-
-The Bellman equation can be solved by several methods. \textbf{Value iteration} \cite{bellman1957} repeatedly applies the Bellman operator $V_{k+1}(s_i) \leftarrow \max_a [r(s_i, a) + \gamma \sum_j p_{ij}(a)\, V_k(s_j)]$ until convergence; this is the method used in the examples below. \textbf{Policy iteration} \cite{howard1960} alternates between evaluating the current policy (solving a linear system) and improving it greedily with respect to the resulting value function; it converges in a finite number of iterations. Both methods yield the optimal policy; value iteration is simpler to implement, while policy iteration often converges in fewer iterations for large state spaces. The MDP can also be formulated as a \textbf{linear program} \cite{puterman1994}, which provides a third exact solution method.
 
 \subsection{Examples}
 
@@ -523,11 +513,6 @@ Optimal policy:
   \pi^*(s_i) = \arg\max_{a \in \mathcal{A}} \left[ r(s_i, a) + \gamma \sum_{j=1}^{n} p_{ij}(a)\, V^*(s_j) \right].
 \end{equation*}
 
-Action-value (Q) function:
-\begin{equation*}
-  Q^*(s_i, a) = r(s_i, a) + \gamma \sum_{j=1}^{n} p_{ij}(a)\, V^*(s_j).
-\end{equation*}
-
 \subsubsection{Relevant Applications}
 \begin{itemize}
   \item Inventory control and supply chain management, where the decision-maker chooses order quantities based on current stock levels to minimize holding and shortage costs.
@@ -599,7 +584,7 @@ and the Bellman equation becomes
 \end{equation}
 where $P(o \mid \mathbf{b}, a) = \sum_{j} O(o \mid s_j, a) \sum_{i} p_{ij}(a)\, b(s_i)$ is the probability of observing $o$, and $\mathbf{b}_{a,o}'$ is the updated belief from (\ref{eq:belief-update}).
 
-Unlike the MDP Bellman equation, which ranges over a finite set of states, this equation ranges over a \emph{continuous} belief space. For finite-horizon problems, Smallwood and Sondik \cite{smallwood1973} showed that $V^*$ is piecewise linear and convex over the belief simplex, which enables exact solution via alpha-vector methods. In general, however, exact finite-horizon POMDP planning is PSPACE-hard \cite{papadimitriou1987}, and practical algorithms rely on point-based approximations or online search.
+Unlike the MDP Bellman equation, which ranges over a finite set of states, this equation ranges over a \emph{continuous} belief space. For finite-horizon problems, Smallwood and Sondik \cite{smallwood1973} showed that $V^*$ is piecewise linear and convex over the belief simplex, which enables exact solution via alpha-vector methods. In general, however, exact finite-horizon POMDP planning is PSPACE-complete \cite{papadimitriou1987}, and practical algorithms rely on point-based approximations or online search.
 
 \subsection{Example: The Tiger Problem}
 
@@ -720,9 +705,9 @@ Bellman equation over the belief simplex:
 
 The \textbf{multi-armed bandit} (MAB) problem isolates a fundamental challenge that appears throughout the preceding sections: the tradeoff between \emph{exploration} (gathering information) and \emph{exploitation} (acting on current knowledge). The name comes from slot machines, colloquially called ``one-armed bandits.'' An agent faces $K$ such machines, each with an unknown reward distribution, and must decide which arm to pull at each time step to maximize cumulative reward.
 
-In the frequentist formulation, the MAB can be viewed as a degenerate MDP with a single observable state: the only decision is which action (arm) to take, and there are no state transitions. In the Bayesian formulation, however, the agent's posterior beliefs over arm parameters evolve with each observation, making the problem an MDP over belief states---and it is this richer formulation that gives rise to the Gittins index. The MAB can also be viewed as a POMDP in which the hidden state is the vector of true arm means and each reward observation provides partial information about them; the Bayesian perspective connects directly to the belief-state framework of Section~\ref{sec:pomdp}.
+The MAB is a degenerate MDP with a single state: the only decision is which action (arm) to take, and there are no state transitions. It can also be viewed as a POMDP in which the hidden state is the vector of true arm means and each reward observation provides partial information about them. The Bayesian perspective on bandits---where the agent maintains a posterior over the unknown parameters---connects directly to the belief-state framework of Section~\ref{sec:pomdp}.
 
-The problem was first studied by Thompson \cite{thompson1933} and formalized in its modern form by Robbins \cite{robbins1952}. Lattimore and Szepesv\'ari \cite{lattimore2020} provide a comprehensive modern treatment.
+The problem was first studied by Thompson \cite{thompson1933} and formalized in its modern form by Robbins \cite{robbins1952}.
 
 \subsection{Notation}
 
@@ -757,11 +742,7 @@ An agent faces $K$ arms. Each arm $i \in \{1, \dots, K\}$ generates i.i.d.\ rewa
 \begin{equation}
   R_T = T \mu^* - \sum_{t=1}^{T} \mathbb{E}[X_{I_t, t}] = \sum_{i:\, \mu_i < \mu^*} \Delta_i \cdot \mathbb{E}[T_i(T)],
 \end{equation}
-where $\mu^* = \max_i \mu_i$ is the mean of the best arm, $\Delta_i = \mu^* - \mu_i$ is the \textbf{gap} (suboptimality) of arm~$i$, and $T_i(T)$ is the number of times arm~$i$ is pulled in $T$ rounds. Regret measures how much reward is lost by not always pulling the best arm.
-
-\textbf{Remark (frequentist vs.\ Bayesian regret).} The definition above is \emph{frequentist} (or worst-case) regret: the arm means $\mu_1, \dots, \mu_K$ are fixed unknowns, and the expectation is over the algorithm's randomness. In the Bayesian formulation, the arm means are drawn from a prior distribution and \emph{Bayesian regret} averages over both the prior and the algorithm: $\mathbb{E}_{\boldsymbol{\mu}}[\mathbb{E}[R_T \mid \boldsymbol{\mu}]]$. The Lai--Robbins lower bound and the UCB1 guarantee stated below are frequentist results; the Gittins index is optimal in the Bayesian sense; Thompson Sampling achieves strong guarantees in both frameworks.
-
-Figure~\ref{fig:mab} illustrates the structure.
+where $\mu^* = \max_i \mu_i$ is the mean of the best arm, $\Delta_i = \mu^* - \mu_i$ is the \textbf{gap} (suboptimality) of arm~$i$, and $T_i(T)$ is the number of times arm~$i$ is pulled in $T$ rounds. Regret measures how much reward is lost by not always pulling the best arm. Figure~\ref{fig:mab} illustrates the structure.
 
 \begin{figure}[ht]
   \centering
@@ -812,7 +793,7 @@ Figure~\ref{fig:mab} illustrates the structure.
 
 \subsubsection{$\varepsilon$-Greedy}
 
-The simplest bandit strategy is $\varepsilon$-greedy: with probability $1 - \varepsilon$, pull the arm with the highest empirical mean (exploit); with probability $\varepsilon$, pull an arm uniformly at random (explore). While intuitive, a fixed $\varepsilon$ yields linear regret because the agent continues exploring at rate $\varepsilon$ indefinitely, even after the best arm is identified. Decaying $\varepsilon_t \propto t^{-1/3}$ improves this to $O(T^{2/3})$ \cite{auer2002}, but this is still far worse than the $O(\ln T)$ achievable by the methods below.
+The simplest bandit strategy is $\varepsilon$-greedy: with probability $1 - \varepsilon$, pull the arm with the highest empirical mean (exploit); with probability $\varepsilon$, pull an arm uniformly at random (explore). While intuitive, a fixed $\varepsilon$ yields linear regret because the agent continues exploring at rate $\varepsilon$ indefinitely, even after the best arm is identified. Decaying $\varepsilon_t \propto t^{-1/3}$ improves this to $O(T^{2/3})$, but this is still far worse than the $O(\ln T)$ achievable by the methods below.
 
 \subsubsection{Upper Confidence Bound (UCB1)}
 
@@ -836,7 +817,7 @@ When the posterior is concentrated on a high mean, the samples are likely to be 
 
 \subsubsection{The Gittins Index}
 
-For the discounted infinite-horizon Bayesian bandit with independent, rested arms (discount factor $\gamma$, known prior on each arm), Gittins \cite{gittins1979} proved a remarkable result: the optimal policy is an \emph{index policy}. Each arm~$i$ is assigned a \textbf{Gittins index} $G_i$ computed from its posterior alone, and the agent always pulls the arm with the highest index. The index can be interpreted as the fair price at which the agent would be indifferent between continuing to pull the arm and receiving a guaranteed constant payoff forever. The Gittins index theorem shows that the multi-arm problem decomposes into independent single-arm problems---a dramatic simplification. This optimality holds specifically for the discounted infinite-horizon objective with independent, rested arms and a known prior; it breaks down under finite horizons, average-reward criteria, or when arms evolve even while not being pulled---motivating the restless bandit model of Section~\ref{sec:restless}.
+For the discounted infinite-horizon Bayesian bandit (discount factor $\gamma$, known prior on each arm), Gittins \cite{gittins1979} proved a remarkable result: the optimal policy is an \emph{index policy}. Each arm~$i$ is assigned a \textbf{Gittins index} $G_i$ computed from its posterior alone, and the agent always pulls the arm with the highest index. The index can be interpreted as the fair price at which the agent would be indifferent between continuing to pull the arm and receiving a guaranteed constant payoff forever. The Gittins index theorem shows that the multi-arm problem decomposes into independent single-arm problems---a dramatic simplification. This optimality breaks down, however, when arms evolve even while not being pulled, motivating the restless bandit model of Section~\ref{sec:restless}.
 
 \subsubsection{Successive Elimination}
 
@@ -1035,7 +1016,7 @@ Thompson Sampling posterior update (Bernoulli arms):
 
 The \textbf{contextual bandit} problem extends the multi-armed bandit framework of Section~\ref{sec:mab} by incorporating \emph{side information}---a context vector observed before each arm selection. The context may encode user features in a recommender system, patient characteristics in personalized medicine, or the current state of a bidding environment in online advertising. Unlike a full MDP, the context arrives exogenously at each round and does not depend on past actions; the agent observes a context, selects an arm, and receives a reward, but there are no state transitions. Contextual bandits thus occupy a middle ground between the stateless exploration of Section~\ref{sec:mab} and the full sequential planning of Section~\ref{sec:mdp}.
 
-The contextual bandit model was formalized by Langford and Zhang \cite{langford2007}, who introduced the Epoch-Greedy algorithm, and has since become a cornerstone of online learning in applications ranging from news article recommendation to clinical trial design. A particularly influential algorithm is LinUCB \cite{li2010}, which applies the principle of optimism in the face of uncertainty to a linear reward model.
+The contextual bandit model was formalized by Langford and Zhang \cite{langford2008}, who introduced the Epoch-Greedy algorithm, and has since become a cornerstone of online learning in applications ranging from news article recommendation to clinical trial design. A particularly influential algorithm is LinUCB \cite{li2010}, which applies the principle of optimism in the face of uncertainty to a linear reward model.
 
 The key algorithmic challenge is the same as in standard bandits---balancing exploration and exploitation---but now the agent must generalize across contexts. A policy that performs well in one context may be suboptimal in another, and the agent must learn a mapping from contexts to arm selections.
 
@@ -1051,31 +1032,15 @@ The key algorithmic challenge is the same as in standard bandits---balancing exp
   $d$ & Dimension of feature vectors \\
   $\boldsymbol{\theta}^*$ & Unknown parameter vector \\
   $r_t(a)$ & Reward for arm $a$ at round $t$ \\
-  $\eta_t$ & Zero-mean noise in reward model \\
   $\pi: \mathcal{X} \to \mathcal{A}$ & Policy mapping contexts to arms \\
   $R_T$ & Cumulative regret over $T$ rounds \\
   $\mathbf{V}_t$ & Design matrix (covariance estimate) at round $t$ \\
-  $\mathbf{b}_t$ & Cumulative reward-weighted features at round $t$\footnotemark \\
   $\hat{\boldsymbol{\theta}}_t$ & Least-squares estimate of $\boldsymbol{\theta}^*$ at round $t$ \\
-  $\alpha$ & Exploration parameter (confidence width)\footnotemark \\
-  $\lambda$ & Regularization parameter\footnotemark \\
-  $\sigma^2$ & Noise variance (Thompson Sampling) \\
-  $\sigma_\theta^2$ & Prior variance for $\boldsymbol{\theta}$ \\
-  $\boldsymbol{\mu}_t, \boldsymbol{\Sigma}_t$ & Posterior mean and covariance of $\boldsymbol{\theta}$\footnotemark \\
-  $\tilde{\boldsymbol{\theta}}$ & Posterior sample (Thompson Sampling) \\
+  $\alpha$ & Exploration parameter (confidence width) \\
+  $\lambda$ & Regularization parameter \\
   $N$ & Number of experts (EXP4) \\
   $w_{i,t}$ & Weight of expert $i$ at round $t$ (EXP4) \\
-  $p_t(a)$ & Mixing probability over arms at round $t$ (EXP4) \\
-  $\hat{r}_t(a)$ & Importance-weighted reward estimate (EXP4) \\
-  $\eta$ & Learning rate (EXP4)\footnotemark \\
 \end{tabular}
-
-\addtocounter{footnote}{-4}
-\stepcounter{footnote}\footnotetext{Not to be confused with the belief state $\mathbf{b}$ of Section~\ref{sec:pomdp} or the immediate return $b$ in Bellman's notation (Section~\ref{sec:mdp}).}
-\stepcounter{footnote}\footnotetext{This $\alpha$ is unrelated to the transition probability $\alpha$ in Section~\ref{sec:mc} or the Beta shape parameters in Section~\ref{sec:mab}.}
-\stepcounter{footnote}\footnotetext{This $\lambda$ is unrelated to the Lagrange multiplier $\lambda$ in Section~\ref{sec:restless}.}
-\stepcounter{footnote}\footnotetext{Not to be confused with the state distribution $\boldsymbol{\mu}_t$ in Section~\ref{sec:mc}.}
-\stepcounter{footnote}\footnotetext{The EXP4 learning rate $\eta$ is unrelated to the noise variable $\eta_t$ in the linear reward model above.}
 
 \subsection{Formal Definition}
 
@@ -1110,7 +1075,7 @@ Two common settings for the context arrival process are:
 
 \subsection{LinUCB: Linear Upper Confidence Bound}
 
-LinUCB \cite{li2010} is the most widely-used contextual bandit algorithm in practice. It extends the optimistic principle behind UCB1 to linear reward models, maintaining uncertainty estimates via ridge regression. Where UCB1 estimates a fixed unknown mean for each arm independently, LinUCB models each arm's reward as a linear function of the observed context, enabling generalization across similar contexts.
+LinUCB \cite{li2010} is the most widely-used contextual bandit algorithm in practice. It extends the optimistic principle behind UCB1 to linear reward models, maintaining uncertainty estimates via ridge regression. Where UCB1 assigns a fixed unknown parameter to each arm, LinUCB models each arm's reward as a linear function of the observed context, enabling generalization across similar contexts.
 
 At each round, LinUCB maintains a ridge-regression estimate of $\boldsymbol{\theta}^*$. Let $\mathbf{V}_t \in \mathbb{R}^{d \times d}$ denote the design matrix and $\mathbf{b}_t \in \mathbb{R}^d$ the cumulative reward-weighted features after $t$ rounds:
 \begin{equation}
@@ -1189,22 +1154,22 @@ Consider a news website recommending articles to users. There are two user types
 
 The true parameter is $\boldsymbol{\theta}^* = [0.8, 0.4]$, so expected rewards are $\boldsymbol{\phi}^\top \boldsymbol{\theta}^*$. Tech users prefer Tech articles (0.8 vs 0.6 vs 0.2); Sports users prefer Sports articles (0.8 vs 0.6 vs 0.2).
 
-\textbf{LinUCB trace} with $\alpha = 1$, $\lambda = 1$, alternating contexts, and noiseless rewards ($r_t = \boldsymbol{\phi}^\top \boldsymbol{\theta}^*$):
+\textbf{LinUCB trace} with $\alpha = 1$, $\lambda = 1$:
 
 \begin{center}
 \begin{tabular}{ccccccc}
   $t$ & Context & $\hat{\boldsymbol{\theta}}_t$ & UCB(Tech) & UCB(Sports) & UCB(Gen) & Choice \\
   \hline
-  1 & Sports & $[0.00,\; 0.00]$ & 0.50 & 1.00 & 0.71 & Sports \\
-  2 & Tech & $[0.40,\; 0.00]$ & 1.11 & 0.50 & 0.81 & Tech \\
-  3 & Sports & $[0.53,\; 0.00]$ & 0.50 & 1.11 & 0.85 & Sports \\
-  4 & Tech & $[0.60,\; 0.00]$ & 1.10 & 0.50 & 0.86 & Tech \\
-  5 & Sports & $[0.64,\; 0.00]$ & 0.50 & 1.09 & 0.87 & Sports \\
-  6 & Tech & $[0.67,\; 0.00]$ & 1.08 & 0.50 & 0.87 & Tech \\
+  1 & Sports & $[0, 0]$ & 1.41 & 1.41 & 1.58 & General \\
+  2 & Tech & $[0.26, 0.26]$ & 1.07 & 0.91 & 1.20 & General \\
+  3 & Sports & $[0.42, 0.42]$ & 0.83 & 0.83 & 1.09 & General \\
+  4 & Tech & $[0.49, 0.49]$ & 1.18 & 0.58 & 1.06 & Tech \\
+  5 & Sports & $[0.60, 0.42]$ & 0.63 & 1.04 & 0.98 & Sports \\
+  6 & Tech & $[0.67, 0.40]$ & 1.21 & 0.49 & 0.93 & Tech \\
 \end{tabular}
 \end{center}
 
-The feature structure enables LinUCB to identify the correct arm for each user type from the first round: the matching arm (Sports for Sports users, Tech for Tech users) has feature vector $[1, 0]$, which has the largest norm and thus the highest exploration bonus. As data accumulates, the first component of $\hat{\boldsymbol{\theta}}_t$ converges toward $0.8$, and the algorithm consistently matches users with their preferred content. Note that $\hat{\boldsymbol{\theta}}_t$ converges to approximately $[0.8, 0]$ rather than the true $[0.8, 0.4]$: because the algorithm always selects arms whose features lie along $[1, 0]$, the second feature dimension is never explored in these early rounds. This illustrates a known property of linear bandits---the algorithm may not recover the full parameter vector, yet it still selects the correct arms. (After many more rounds, the persistent uncertainty in the second dimension eventually causes the General article's UCB to exceed the matching arm's, triggering exploration of the remaining parameter.)
+Initially, high uncertainty leads to exploration (General article chosen). As data accumulates, $\hat{\boldsymbol{\theta}}_t$ approaches $[0.8, 0.4]$ and the algorithm learns to match users with their preferred content.
 
 The following Python code verifies this solution:
 
@@ -1222,22 +1187,21 @@ def get_features(user, arm):
 
 V = lambda_reg * np.eye(d)
 b = np.zeros(d)
-contexts = [1, 0, 1, 0, 1, 0]  # Sports, Tech, alternating
+np.random.seed(42)
 
-# Trace: 6 rounds with noiseless rewards (reproduces table)
-for t in range(6):
-    user = contexts[t]
+for t in range(1, 101):
+    user = np.random.randint(0, 2)
     theta_hat = np.linalg.solve(V, b)
     ucbs = [get_features(user, a) @ theta_hat +
             alpha * np.sqrt(get_features(user, a) @
             np.linalg.solve(V, get_features(user, a))) for a in range(K)]
     arm = np.argmax(ucbs)
     phi = get_features(user, arm)
-    r = phi @ theta_star  # noiseless for trace verification
+    r = phi @ theta_star + np.random.normal(0, 0.1)
     V += np.outer(phi, phi)
     b += r * phi
 
-print(f"Estimated theta: {np.linalg.solve(V, b)}")  # [0.80, 0.00]
+print(f"Estimated theta: {np.linalg.solve(V, b)}")  # [0.80, 0.40]
 \end{lstlisting}
 
 \subsection{Summary}
@@ -1316,7 +1280,7 @@ The classical (``rested'') bandit of Section~\ref{sec:mab} is the special case w
 
 \subsection{Intractability}
 
-The joint state space of a $K$-arm restless bandit is the product $\mathcal{S}_1 \times \cdots \times \mathcal{S}_K$, which grows exponentially in $K$. Papadimitriou and Tsitsiklis \cite{papadimitriou1999} proved that the restless bandit problem is \textbf{PSPACE-hard}---a strictly stronger form of intractability than NP-hardness. This motivates the use of index heuristics.
+The joint state space of a $K$-arm restless bandit is the product $\mathcal{S}_1 \times \cdots \times \mathcal{S}_K$, which grows exponentially in $K$. Papadimitriou and Tsitsiklis \cite{papadimitriou1999} proved that the restless bandit problem is \textbf{PSPACE-hard}---a strictly stronger form of intractability than NP-hardness. Even computing a nontrivially good approximate policy is PSPACE-hard in general. This motivates the use of index heuristics.
 
 \subsection{Whittle's Relaxation and the Whittle Index}
 
@@ -1394,7 +1358,7 @@ The discount factor is $\gamma = 0.9$. Computing the Whittle indices by binary s
 \end{equation}
 The large gap $W(\text{B}) \gg W(\text{G})$ reflects an intuitive priority: a broken machine benefits far more from the repairman than a functioning one.
 
-The Whittle index policy assigns the repairman to the machine with the highest index---always a Bad machine when one exists. We trace five steps starting from states $(\text{G}, \text{B}, \text{B})$, where M1, M2, M3 denote machines~1, 2, and~3 respectively:
+The Whittle index policy assigns the repairman to the machine with the highest index---always a Bad machine when one exists. We trace five steps starting from states $(\text{G}, \text{B}, \text{B})$:
 
 \begin{center}
 \begin{tabular}{cccccc}
@@ -1697,8 +1661,7 @@ Section~\ref{sec:beyond} surveyed several important model classes that lie outsi
 \bibitem{bellman1957}
   R.~Bellman,
   ``A Markovian decision process,''
-  \emph{Journal of Mathematics and Mechanics},
-  vol.~6, no.~5, pp.~679--684, 1957.
+  RAND Corporation, Santa Monica, CA, Paper P-1066, April 1957.
 
 \bibitem{astrom1965}
   K.~J.~\AA str\"om,
@@ -1740,7 +1703,7 @@ Section~\ref{sec:beyond} surveyed several important model classes that lie outsi
   J.~C.~Gittins,
   ``Bandit processes and dynamic allocation indices,''
   \emph{Journal of the Royal Statistical Society: Series~B},
-  vol.~41, no.~2, pp.~148--164 [with discussion, pp.~165--177], 1979.
+  vol.~41, no.~2, pp.~148--177, 1979.
 
 \bibitem{lai1985}
   T.~L.~Lai and H.~Robbins,
@@ -1802,11 +1765,11 @@ Section~\ref{sec:beyond} surveyed several important model classes that lie outsi
   \emph{Proceedings of the IEEE},
   vol.~77, no.~2, pp.~257--286, 1989.
 
-\bibitem{langford2007}
+\bibitem{langford2008}
   J.~Langford and T.~Zhang,
   ``The Epoch-Greedy algorithm for contextual multi-armed bandits,''
-  in \emph{Advances in Neural Information Processing Systems~20 (NeurIPS)},
-  pp.~817--824, 2007.
+  in \emph{Advances in Neural Information Processing Systems~20 (NIPS)},
+  pp.~817--824, 2008.
 
 \bibitem{li2010}
   L.~Li, W.~Chu, J.~Langford, and R.~E.~Schapire,
@@ -1847,16 +1810,6 @@ Section~\ref{sec:beyond} surveyed several important model classes that lie outsi
   \emph{Reinforcement Learning: An Introduction},
   2nd~ed.
   Cambridge, MA: MIT Press, 2018.
-
-\bibitem{howard1960}
-  R.~A.~Howard,
-  \emph{Dynamic Programming and Markov Processes}.
-  Cambridge, MA: MIT Press, 1960.
-
-\bibitem{lattimore2020}
-  T.~Lattimore and C.~Szepesv\'ari,
-  \emph{Bandit Algorithms}.
-  Cambridge: Cambridge University Press, 2020.
 
 \end{thebibliography}
 
