@@ -1,43 +1,21 @@
 # MDPs and Multi-Armed Bandits: An Overview
 
-A survey paper covering Markov decision processes, bandit problems, and related models. The paper is being refactored from a single monolithic document (V1) into a collection of standalone monographs (V2).
+A self-contained survey of Markov-based sequential decision-making, spanning from Markov's original study of dependent random variables (1906) through Bellman's dynamic programming to modern bandit algorithms deployed in clinical trials, online advertising, and autonomous systems.
 
-## Repository Structure
+The paper covers six core model classes arranged in a progression of increasing generality:
 
-```
-LaTeX/MDPS Overview/
-  V1/                     -- Original paper (archived, read-only reference)
-    MDPs and Multi-Arm Bandits.tex   -- Final V1 source
-    MDPs and Multi-Arm Bandits v{1,2,3}.tex -- Earlier drafts
-    critique{1,2}.md, critique-response.md  -- Peer review notes
-  monographs/             -- V2 refactor: one folder per topic
-    02-markov-processes/
-    03-markov-decision-processes/
-    04-partially-observable-markov-decision-processes/
-    05-multi-armed-bandit-problems/
-    06-contextual-bandit-problems/
-    07-restless-bandit-problems/
-    08-beyond-the-scope-of-this-paper/
-```
+1. **Markov Processes** -- A system evolves randomly among a finite set of states according to fixed transition probabilities, with no external control. The transition matrix and stationary distribution are the central objects.
 
-## V1 Sections
+2. **Markov Decision Processes** -- An agent chooses actions that influence both state transitions and rewards. The Bellman equation characterizes the optimal policy, and solution methods (value iteration, policy iteration, linear programming) provide constructive algorithms.
 
-1. Introduction
-2. Markov Processes
-3. Markov Decision Processes
-4. Partially Observable MDPs
-5. Multi-Armed Bandit Problems
-6. Contextual Bandit Problems
-7. Restless Bandit Problems
-8. Beyond the Scope of This Paper
-9. Conclusion
+3. **Partially Observable MDPs** -- The agent can no longer observe the state directly and must maintain a belief distribution updated via Bayes' rule. The POMDP reduces to a continuous-state MDP over the belief simplex, at the cost of greatly increased computational complexity.
 
-## Other Files
+4. **Multi-Armed Bandits** -- The exploration-exploitation tradeoff in its purest form: a single-state problem where the agent must learn which arm is best by trying them. Covers epsilon-greedy, UCB1, Thompson Sampling, the Gittins index, successive elimination, KL-UCB, and EXP3, together with the Lai-Robbins regret lower bound.
 
-| File | Description |
-|------|-------------|
-| `linucb-example.tex` | Standalone LinUCB worked example |
-| `asset-mdp-diagram.md` | MDP diagram notes |
-| `review.md` | Review notes |
-| `LaTeX/Waterworks Problem/` | Waterworks MDP model |
-| `LaTeX/Waterworks - Alt Solution/` | Alternate waterworks solution |
+5. **Contextual Bandits** -- Side information (a context vector) is observed before each arm selection, and reward distributions depend on the context. Covers LinUCB, Thompson Sampling for linear models, and EXP4 for adversarial settings.
+
+6. **Restless Bandits** -- The classical bandit assumption that unplayed arms are frozen is removed: every arm evolves at every time step. The Whittle index policy provides a tractable heuristic for this PSPACE-hard problem.
+
+An additional section surveys related model classes -- hidden Markov models, Markov games, constrained MDPs, semi-Markov decision processes, and model-free reinforcement learning -- that lie beyond the scope of this paper but occupy adjacent regions of the same theoretical landscape.
+
+Each section follows a uniform structure: a notation table, formal definitions, key theoretical results, worked examples with explicit numerical computation, and a summary of key equations and applications. The paper is pedagogical in intent; it presents no new results but aims to collect, unify, and illustrate the core ideas in a single reference. Familiarity with linear algebra and basic probability is assumed; no prior exposure to dynamic programming or bandit theory is required.
