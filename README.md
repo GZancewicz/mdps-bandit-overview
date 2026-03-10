@@ -19,3 +19,7 @@ The paper covers six core model classes arranged in a progression of increasing 
 An additional section surveys related model classes -- hidden Markov models, Markov games, constrained MDPs, semi-Markov decision processes, and model-free reinforcement learning -- that lie beyond the scope of this paper but occupy adjacent regions of the same theoretical landscape.
 
 Each section follows a uniform structure: a notation table, formal definitions, key theoretical results, worked examples with explicit numerical computation, and a summary of key equations and applications. The paper is pedagogical in intent; it presents no new results but aims to collect, unify, and illustrate the core ideas in a single reference. Familiarity with linear algebra and basic probability is assumed; no prior exposure to dynamic programming or bandit theory is required.
+
+---
+
+Draft material, including LaTeX sources and monograph expansions, is available on the [`drafts`](../../tree/drafts) branch.
