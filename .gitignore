@@ -224,6 +224,5 @@ __marimo__/
 
 .claude/
 
-# Project folders to exclude
-LaTeX/_Archive/
-LaTeX/MDPS Overview/V2/
+
+LaTeX
